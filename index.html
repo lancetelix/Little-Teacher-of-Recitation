@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌱 今天的小老師</title>
+  <style>
+    body {
+      background-color: #FAF8F5;
+      color: #2D3748;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: #FFFFFF;
+      padding: 32px 24px;
+      border-radius: 24px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.03);
+      text-align: center;
+      max-width: 380px;
+      width: 100%;
+    }
+    h1 { color: #2E7D32; font-size: 1.75rem; margin: 0 0 8px 0; }
+    p.subtitle { color: #718096; margin: 0 0 32px 0; font-size: 0.95rem; }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      font-size: 1.1rem;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    }
+    button:active { transform: scale(0.98); }
+    .result-box {
+      margin-top: 28px;
+      padding: 16px;
+      background: #F0F7F4;
+      border-radius: 16px;
+      text-align: left;
+      font-size: 0.95rem;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🌱 今天的小老師</h1>
+    <p class="subtitle">陪你完成今天的練習。</p>
+
+    <button id="startBtn">🎤 開始說話</button>
+
+    <div id="resultBox" class="result-box" style="display:none;">
+      <div><strong>說出的話：</strong><span id="transcriptText">-</span></div>
+      <hr style="border: none; border-top: 1px stroke #E2E8F0; margin: 12px 0;">
+      <div><strong>系統解析結果：</strong></div>
+      <div>年級：<span id="gradeVal">-</span></div>
+      <div>班級代碼：<span id="classCodeVal">-</span></div>
+      <div>座號：<span id="seatVal">-</span></div>
+      <div>內部識別 ID：<strong id="studentIdVal" style="color:#2E7D32;">-</strong></div>
+    </div>
+  </div>
+
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const resultBox = document.getElementById('resultBox');
+    const transcriptText = document.getElementById('transcriptText');
+    const gradeVal = document.getElementById('gradeVal');
+    const classCodeVal = document.getElementById('classCodeVal');
+    const seatVal = document.getElementById('seatVal');
+    const studentIdVal = document.getElementById('studentIdVal');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert('請使用 Google Chrome 瀏覽器進行測試。');
+    } else {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'zh-TW';
+      recognition.continuous = false;
+
+      startBtn.addEventListener('click', () => {
+        startBtn.innerText = '🎙️ 正在聽你說...';
+        recognition.start();
+      });
+
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        transcriptText.textContent = text;
+        resultBox.style.display = 'block';
+        parseStudentInfo(text);
+      };
+
+      recognition.onend = () => { startBtn.innerText = '🎤 開始說話'; };
+      recognition.onerror = () => { startBtn.innerText = '🎤 開始說話'; };
+    }
+
+    function parseStudentInfo(text) {
+      // 支援全角/半角數字與國字數字的匹配語法
+      const regex = /([1-9一二三四五六七八九1-9])\s*年\s*([0-9０-警一二三四五六七八九十]+)\s*班\s*(?:第)?\s*([0-9０-９一二三四五六七八九十]+)\s*號/;
+      const match = text.match(regex);
+
+      if (match) {
+        const grade = convertNum(match[1]);
+        const classNum = convertNum(match[2]);
+        const seatNum = convertNum(match[3]);
+
+        const classCode = `${grade}${classNum.padStart(2, '0')}`;
+        const studentId = `${classCode}-${seatNum.padStart(2, '0')}`;
+
+        gradeVal.textContent = grade;
+        classCodeVal.textContent = classCode;
+        seatVal.textContent = seatNum;
+        studentIdVal.textContent = studentId;
+      } else {
+        gradeVal.textContent = '未辨識';
+        classCodeVal.textContent = '未辨識';
+        seatVal.textContent = '未辨識';
+        studentIdVal.textContent = '格式不合，請說「我是3年5班13號」';
+      }
+    }
+
+    function convertNum(str) {
+      const zhMap = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+      let num = str.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
+      if (zhMap[num]) return String(zhMap[num]);
+      return String(parseInt(num, 10) || num);
+    }
+  </script>
+</body>
+</html>
