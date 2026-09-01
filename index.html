@@ -3,70 +3,120 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌱 今天的小老師</title>
+  <title>今天的小老師</title>
   <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
     body {
-      background-color: #FAF8F5;
-      color: #2D3748;
-      font-family: system-ui, -apple-system, sans-serif;
+      background-color: #F8F4EE;
+      color: #2C3E50;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      margin: 0;
       padding: 20px;
-      box-sizing: border-box;
     }
     .card {
-      background: #FFFFFF;
-      padding: 32px 24px;
-      border-radius: 24px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.03);
+      background: #FFFDF9;
+      padding: 40px 28px 32px;
+      border-radius: 32px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
       text-align: center;
-      max-width: 380px;
+      max-width: 420px;
       width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-    h1 { color: #2E7D32; font-size: 1.75rem; margin: 0 0 8px 0; }
-    p.subtitle { color: #718096; margin: 0 0 32px 0; font-size: 0.95rem; }
-    button {
-      background-color: #4CAF50;
-      color: white;
+    .icon-wrapper {
+      margin-bottom: 12px;
+    }
+    h1 {
+      color: #1E3A52;
+      font-size: 2.1rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+    .subtitle {
+      color: #5A6B7C;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+    .start-btn {
+      background-color: #E07A5F;
+      color: #FFFFFF;
       border: none;
-      padding: 16px 32px;
-      font-size: 1.1rem;
+      padding: 14px 64px;
+      font-size: 1.25rem;
+      font-weight: 600;
       border-radius: 50px;
       cursor: pointer;
-      font-weight: bold;
-      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+      box-shadow: 0 6px 16px rgba(224, 122, 95, 0.3);
+      transition: all 0.2s ease;
+      letter-spacing: 2px;
     }
-    button:active { transform: scale(0.98); }
+    .start-btn:hover {
+      background-color: #D66D52;
+      transform: translateY(-1px);
+    }
+    .start-btn:active {
+      transform: scale(0.97);
+    }
+    .hint-text {
+      color: #7A8A99;
+      font-size: 0.9rem;
+      margin-top: 48px;
+      letter-spacing: 0.5px;
+    }
+    /* 解析結果顯示區域 */
     .result-box {
-      margin-top: 28px;
-      padding: 16px;
-      background: #F0F7F4;
-      border-radius: 16px;
+      margin-top: 24px;
+      padding: 16px 20px;
+      background: #F4EFEA;
+      border-radius: 20px;
+      width: 100%;
       text-align: left;
       font-size: 0.95rem;
       line-height: 1.8;
+      color: #4A5568;
     }
   </style>
 </head>
 <body>
+
   <div class="card">
-    <h1>🌱 今天的小老師</h1>
-    <p class="subtitle">陪你完成今天的練習。</p>
+    <!-- 芽苗 Icon -->
+    <div class="icon-wrapper">
+      <svg width="68" height="68" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 38C32 24 18 16 18 16C18 16 18 29 32 38Z" fill="#7CB342" stroke="#1E3A52" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M32 38C32 20 48 16 48 16C48 16 44 31 32 38Z" fill="#8BC34A" stroke="#1E3A52" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M32 38V48" stroke="#1E3A52" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="32" cy="46" r="6" fill="#E07A5F" stroke="#1E3A52" stroke-width="3"/>
+      </svg>
+    </div>
 
-    <button id="startBtn">🎤 開始說話</button>
+    <h1>今天的小老師</h1>
+    <p class="subtitle">準備好了嗎？<br>按下開始，告訴我你的座號。</p>
 
-    <div id="resultBox" class="result-box" style="display:none;">
+    <button id="startBtn" class="start-btn">開始</button>
+
+    <!-- 解析結果展示（語音識別後自動顯現） -->
+    <div id="resultBox" class="result-box" style="display: none;">
       <div><strong>說出的話：</strong><span id="transcriptText">-</span></div>
-      <hr style="border: none; border-top: 1px stroke #E2E8F0; margin: 12px 0;">
-      <div><strong>系統解析結果：</strong></div>
+      <hr style="border: none; border-top: 1px stroke #DCD6CD; margin: 10px 0;">
       <div>年級：<span id="gradeVal">-</span></div>
       <div>班級代碼：<span id="classCodeVal">-</span></div>
       <div>座號：<span id="seatVal">-</span></div>
-      <div>內部識別 ID：<strong id="studentIdVal" style="color:#2E7D32;">-</strong></div>
+      <div>內部識別 ID：<strong id="studentIdVal" style="color: #E07A5F;">-</strong></div>
     </div>
+
+    <p class="hint-text">請說：「我是三年〇班〇號，我要開始了。」</p>
   </div>
 
   <script>
@@ -81,15 +131,20 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert('請使用 Google Chrome 瀏覽器進行測試。');
+      alert('請使用 Google Chrome 或 Microsoft Edge 瀏覽器進行測試。');
     } else {
       const recognition = new SpeechRecognition();
       recognition.lang = 'zh-TW';
       recognition.continuous = false;
 
       startBtn.addEventListener('click', () => {
-        startBtn.innerText = '🎙️ 正在聽你說...';
-        recognition.start();
+        startBtn.innerText = '聆聽中...';
+        try {
+          recognition.start();
+        } catch (e) {
+          alert('無法啟動錄音：' + e.message);
+          startBtn.innerText = '開始';
+        }
       });
 
       recognition.onresult = (event) => {
@@ -99,13 +154,22 @@
         parseStudentInfo(text);
       };
 
-      recognition.onend = () => { startBtn.innerText = '🎤 開始說話'; };
-      recognition.onerror = () => { startBtn.innerText = '🎤 開始說話'; };
+      recognition.onend = () => { 
+        startBtn.innerText = '開始'; 
+      };
+
+      recognition.onerror = (event) => { 
+        startBtn.innerText = '開始';
+        if (event.error === 'not-allowed') {
+          alert('麥克風權限被拒絕！請檢查瀏覽器網址列左側的鎖頭圖示並開啟麥克風權限。');
+        } else {
+          alert('語音辨識錯誤：' + event.error);
+        }
+      };
     }
 
     function parseStudentInfo(text) {
-      // 支援全角/半角數字與國字數字的匹配語法
-      const regex = /([1-9一二三四五六七八九1-9])\s*年\s*([0-9０-警一二三四五六七八九十]+)\s*班\s*(?:第)?\s*([0-9０-９一二三四五六七八九十]+)\s*號/;
+      const regex = /([1-9一二三四五六七八九1-9])\s*年\s*([0-9０-９一二三四五六七八九十]+)\s*班\s*(?:第)?\s*([0-9０-９一二三四五六七八九十]+)\s*號/;
       const match = text.match(regex);
 
       if (match) {
@@ -124,7 +188,7 @@
         gradeVal.textContent = '未辨識';
         classCodeVal.textContent = '未辨識';
         seatVal.textContent = '未辨識';
-        studentIdVal.textContent = '格式不合，請說「我是3年5班13號」';
+        studentIdVal.textContent = '格式不合，請說「我是三年〇班〇號」';
       }
     }
 
