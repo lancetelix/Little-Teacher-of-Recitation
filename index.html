@@ -3,17 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>今天的小老師</title>
+  <title>🌱 今天的小老師</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background-color: #F8F4EE;
-      color: #2C3E50;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+      background-color: #FAF8F5; /* 規範指定的米白色背景 */
+      color: #2D3748;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -21,102 +17,100 @@
       padding: 20px;
     }
     .card {
-      background: #FFFDF9;
-      padding: 40px 28px 32px;
-      border-radius: 32px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03);
+      background: #FFFFFF;
+      padding: 40px 28px 36px;
+      border-radius: 28px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
       text-align: center;
-      max-width: 420px;
+      max-width: 400px;
       width: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
-    .icon-wrapper {
-      margin-bottom: 12px;
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
     }
+    .header img, .header svg { width: 32px; height: 32px; }
     h1 {
-      color: #1E3A52;
-      font-size: 2.1rem;
+      color: #2E7D32; /* 規範規定的主視覺綠色 */
+      font-size: 1.8rem;
       font-weight: 700;
-      letter-spacing: 1px;
-      margin-bottom: 16px;
     }
     .subtitle {
-      color: #5A6B7C;
-      font-size: 1.05rem;
-      line-height: 1.6;
-      margin-bottom: 32px;
+      color: #718096;
+      font-size: 1rem;
+      margin-bottom: 36px;
     }
     .start-btn {
-      background-color: #E07A5F;
-      color: #FFFFFF;
+      background-color: #4CAF50; /* 規範指定的綠色按鈕 */
+      color: white;
       border: none;
-      padding: 14px 64px;
-      font-size: 1.25rem;
-      font-weight: 600;
+      padding: 14px 44px;
+      font-size: 1.2rem;
+      font-weight: bold;
       border-radius: 50px;
       cursor: pointer;
-      box-shadow: 0 6px 16px rgba(224, 122, 95, 0.3);
-      transition: all 0.2s ease;
-      letter-spacing: 2px;
+      box-shadow: 0 4px 14px rgba(76, 175, 80, 0.25);
+      transition: transform 0.1s, background-color 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .start-btn:hover {
-      background-color: #D66D52;
-      transform: translateY(-1px);
-    }
-    .start-btn:active {
-      transform: scale(0.97);
-    }
-    .hint-text {
-      color: #7A8A99;
-      font-size: 0.9rem;
+    .start-btn:active { transform: scale(0.97); }
+    /* 關鍵：明確給學生的提示詞區塊 */
+    .prompt-text {
       margin-top: 48px;
+      color: #718096;
+      font-size: 0.95rem;
       letter-spacing: 0.5px;
     }
-    /* 解析結果顯示區域 */
     .result-box {
       margin-top: 24px;
-      padding: 16px 20px;
-      background: #F4EFEA;
-      border-radius: 20px;
+      padding: 16px;
+      background: #F0F7F4;
+      border-radius: 16px;
       width: 100%;
       text-align: left;
       font-size: 0.95rem;
-      line-height: 1.8;
-      color: #4A5568;
+      line-height: 1.7;
     }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <!-- 芽苗 Icon -->
-    <div class="icon-wrapper">
-      <svg width="68" height="68" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div class="header">
+      <!-- 幼芽 SVG -->
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M32 38C32 24 18 16 18 16C18 16 18 29 32 38Z" fill="#7CB342" stroke="#1E3A52" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M32 38C32 20 48 16 48 16C48 16 44 31 32 38Z" fill="#8BC34A" stroke="#1E3A52" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M32 38V48" stroke="#1E3A52" stroke-width="3" stroke-linecap="round"/>
         <circle cx="32" cy="46" r="6" fill="#E07A5F" stroke="#1E3A52" stroke-width="3"/>
       </svg>
+      <h1>今天的小老師</h1>
     </div>
+    <p class="subtitle">陪你完成今天的練習。</p>
 
-    <h1>今天的小老師</h1>
-    <p class="subtitle">準備好了嗎？<br>按下開始，告訴我你的座號。</p>
+    <button id="startBtn" class="start-btn">
+      🎤 開始說話
+    </button>
 
-    <button id="startBtn" class="start-btn">開始</button>
-
-    <!-- 解析結果展示（語音識別後自動顯現） -->
+    <!-- 語音辨識結果調試框 -->
     <div id="resultBox" class="result-box" style="display: none;">
       <div><strong>說出的話：</strong><span id="transcriptText">-</span></div>
-      <hr style="border: none; border-top: 1px stroke #DCD6CD; margin: 10px 0;">
+      <hr style="border: none; border-top: 1px stroke #CBD5E0; margin: 8px 0;">
       <div>年級：<span id="gradeVal">-</span></div>
       <div>班級代碼：<span id="classCodeVal">-</span></div>
       <div>座號：<span id="seatVal">-</span></div>
-      <div>內部識別 ID：<strong id="studentIdVal" style="color: #E07A5F;">-</strong></div>
+      <div>內部識別 ID：<strong id="studentIdVal" style="color: #2E7D32;">-</strong></div>
     </div>
 
-    <p class="hint-text">請說：「我是三年〇班〇號，我要開始了。」</p>
+    <!-- 給學生的引導文字（必要項目） -->
+    <p class="prompt-text">請說：「我是三年〇班〇號，我要開始了。」</p>
   </div>
 
   <script>
@@ -131,19 +125,19 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert('請使用 Google Chrome 或 Microsoft Edge 瀏覽器進行測試。');
+      alert('請使用 Google Chrome 或 Microsoft Edge 瀏覽器開啟。');
     } else {
       const recognition = new SpeechRecognition();
       recognition.lang = 'zh-TW';
       recognition.continuous = false;
 
       startBtn.addEventListener('click', () => {
-        startBtn.innerText = '聆聽中...';
+        startBtn.innerText = '🎙️ 正在聽你說...';
         try {
           recognition.start();
         } catch (e) {
-          alert('無法啟動錄音：' + e.message);
-          startBtn.innerText = '開始';
+          alert('無法啟動麥克風：' + e.message);
+          startBtn.innerText = '🎤 開始說話';
         }
       });
 
@@ -154,16 +148,13 @@
         parseStudentInfo(text);
       };
 
-      recognition.onend = () => { 
-        startBtn.innerText = '開始'; 
-      };
-
-      recognition.onerror = (event) => { 
-        startBtn.innerText = '開始';
+      recognition.onend = () => { startBtn.innerText = '🎤 開始說話'; };
+      recognition.onerror = (event) => {
+        startBtn.innerText = '🎤 開始說話';
         if (event.error === 'not-allowed') {
-          alert('麥克風權限被拒絕！請檢查瀏覽器網址列左側的鎖頭圖示並開啟麥克風權限。');
+          alert('請允許麥克風權限才能開始背誦喔！');
         } else {
-          alert('語音辨識錯誤：' + event.error);
+          alert('語音辨識發生錯誤：' + event.error);
         }
       };
     }
@@ -188,7 +179,7 @@
         gradeVal.textContent = '未辨識';
         classCodeVal.textContent = '未辨識';
         seatVal.textContent = '未辨識';
-        studentIdVal.textContent = '格式不合，請說「我是三年〇班〇號」';
+        studentIdVal.textContent = '格式不符，請參考下方提示詞再試一次';
       }
     }
 
