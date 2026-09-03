@@ -150,22 +150,17 @@
     }
 
     function parseStudentInfo(text) {
-      // 1. 全形轉半形
       let t = text.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
       
-      // 2. 中文數字精準轉阿拉伯數字 (解決十幾號、二十幾號的問題)
       const numMap = {'一':'1','二':'2','兩':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9','十':'10','零':'0','〇':'0','O':'0'};
-      t = t.replace(/十([一二三四五六七八九])/g, (m, p1) => "1" + numMap[p1]); // 十一~十九
-      t = t.replace(/([二三四五六七八九])十([一二三四五六七八九])?/g, (m, p1, p2) => numMap[p1] + (p2 ? numMap[p2] : "0")); // 二十~九十九
+      t = t.replace(/十([一二三四五六七八九])/g, (m, p1) => "1" + numMap[p1]);
+      t = t.replace(/([二三四五六七八九])十([一二三四五六七八九])?/g, (m, p1, p2) => numMap[p1] + (p2 ? numMap[p2] : "0"));
       t = t.replace(/十/g, "10"); 
-      t = t.replace(/[一二兩三四五六七八九零〇O]/g, m => numMap[m]); // 單個數字
+      t = t.replace(/[一二兩三四五六七八九零〇O]/g, m => numMap[m]);
 
       let grade, classNum, seatNum;
 
-      // 3. 智慧模糊辨識 (容許冗言贅字與台灣國語)
-      // 模式 A: 抓取 數字+年(連/級) + 數字+班 + 數字+號
       const regexA = /([1-9]).*?[年連黏級].*?([0-9]+).*?班.*?([0-9]+).*?號/;
-      // 模式 B: 直接抓取 306班 8號 這種念法
       const regexB = /([1-9])([0-9]{1,2}).*?班.*?([0-9]+).*?號/;
 
       let matchA = t.match(regexA);
@@ -190,7 +185,6 @@
 
         fetchPendingTasks(currentClassCode, currentSeatNo);
       } else {
-        // 如果失敗，印出系統聽到的內容讓老師/學生知道哪裡出錯
         statusMsg.style.color = '#E07A5F';
         statusMsg.innerHTML = `沒聽清楚班級或座號喔！<br><span style="font-size:0.85rem;color:#718096;">(剛才小老師聽到的是：「${text}」)</span>`;
       }
@@ -239,7 +233,7 @@
       const btn = document.querySelector(`#card-${taskId} .recite-btn`);
       if (btn.dataset.status === 'recording') {
         finishAndSubmitRecitation(taskId);
-      } else {
+      } else if (btn.dataset.status === 'idle') {
         startReciting(taskId);
       }
     }
@@ -262,17 +256,19 @@
       activeRec = new SpeechRecognition();
       activeRec.lang = 'zh-TW';
       activeRec.continuous = true;
-      activeRec.interimResults = false;
+      activeRec.interimResults = true; // 開啟即時字流，抓取毫秒級語音
 
       activeRec.onresult = (event) => {
-        let currentString = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            currentString += event.results[i][0].transcript;
-          }
+        // 如果已經按下了送出按鈕，就不再更新畫面的聽取狀態
+        if (btn.dataset.status !== 'recording') return;
+
+        let fullText = "";
+        for (let i = 0; i < event.results.length; i++) {
+          fullText += event.results[i][0].transcript;
         }
-        if (currentString) {
-          accumulatedText += currentString + " ";
+        accumulatedText = fullText;
+
+        if (accumulatedText.trim()) {
           feedback.textContent = '小老師聽到了：' + accumulatedText;
         }
 
@@ -299,22 +295,25 @@
 
       clearTimeout(silenceTimer);
 
+      // 立即鎖定狀態，防止瀏覽器延遲事件覆蓋畫面
+      btn.dataset.status = 'submitting';
+
       if (activeRec) {
         try { activeRec.stop(); } catch(e) {}
       }
 
-      btn.dataset.status = 'idle';
-      btn.style.backgroundColor = '#E07A5F';
-
       const finalSpeech = accumulatedText.trim();
 
       if (!finalSpeech) {
+        btn.dataset.status = 'idle';
+        btn.style.backgroundColor = '#E07A5F';
         btn.innerText = '🎙️ 按我開始背誦';
         feedback.style.color = '#E07A5F';
         feedback.textContent = '還沒有聽到聲音喔，再試一次！';
         return;
       }
 
+      btn.style.backgroundColor = '#E07A5F';
       btn.innerText = '⏳ 小老師思考中...';
 
       fetch(GAS_API_URL, {
@@ -330,6 +329,7 @@
       })
       .then(res => res.json())
       .then(res => {
+        btn.dataset.status = 'idle';
         btn.innerText = '🎙️ 按我重新背誦';
         feedback.style.display = 'block';
 
@@ -348,6 +348,7 @@
         }
       })
       .catch(err => {
+        btn.dataset.status = 'idle';
         btn.innerText = '🎙️ 按我重新背誦';
         feedback.style.display = 'block';
         feedback.style.color = '#E07A5F';
