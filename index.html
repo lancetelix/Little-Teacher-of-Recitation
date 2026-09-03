@@ -1,239 +1,167 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌱 今天的小老師</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background-color: #FAF8F5;
-      color: #2D3748;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-    .card {
-      background: #FFFFFF;
-      padding: 36px 28px;
-      border-radius: 28px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
-      text-align: center;
-      max-width: 400px;
-      width: 100%;
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 6px;
-    }
-    .header svg { width: 32px; height: 32px; }
-    h1 { color: #2E7D32; font-size: 1.75rem; font-weight: 700; }
-    .subtitle { color: #718096; font-size: 0.95rem; margin-bottom: 24px; }
-    
-    .start-btn {
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      padding: 12px 36px;
-      font-size: 1.1rem;
-      font-weight: bold;
-      border-radius: 50px;
-      cursor: pointer;
-      box-shadow: 0 4px 14px rgba(76, 175, 80, 0.25);
-    }
+<script>
+  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzRi86w6Bt_MZO-utAPDPR7ujBojxobdR9YG7XGg4C_Vdu1Xlk6MV-nuIrg1CraukIJAw/exec";
 
-    .status-msg { margin-top: 16px; font-size: 1rem; color: #2E7D32; font-weight: 600; }
-    .task-area { margin-top: 20px; width: 100%; }
+  let currentClassCode = "";
+  let currentSeatNo = "";
 
-    .task-card {
-      background: #F4EFEA;
-      padding: 16px;
-      border-radius: 18px;
-      margin-bottom: 12px;
-      text-align: left;
-    }
-    .task-badge {
-      background: #4CAF50; color: white;
-      padding: 2px 8px; border-radius: 10px;
-      font-size: 0.75rem; font-weight: bold;
-      display: inline-block; margin-bottom: 6px;
-    }
-    .task-title { color: #1E3A52; font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; }
-    
-    .recite-btn {
-      background-color: #E07A5F;
-      color: white; border: none;
-      padding: 8px 18px; font-size: 0.9rem;
-      border-radius: 20px; cursor: pointer;
-      font-weight: bold; width: 100%;
-    }
+  const startBtn = document.getElementById('startBtn');
+  const statusMsg = document.getElementById('statusMsg');
+  const taskArea = document.getElementById('taskArea');
 
-    .ai-feedback {
-      margin-top: 10px; padding: 10px;
-      background: #FFFFFF; border-radius: 12px;
-      font-size: 0.9rem; color: #2E7D32;
-    }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    .prompt-text { margin-top: 32px; color: #718096; font-size: 0.95rem; }
-  </style>
-</head>
-<body>
-
-  <div class="card">
-    <div class="header">
-      <svg viewBox="0 0 64 64" fill="none">
-        <path d="M32 38C32 24 18 16 18 16C18 16 18 29 32 38Z" fill="#7CB342" stroke="#1E3A52" stroke-width="3"/>
-        <path d="M32 38C32 20 48 16 48 16C48 16 44 31 32 38Z" fill="#8BC34A" stroke="#1E3A52" stroke-width="3"/>
-        <path d="M32 38V48" stroke="#1E3A52" stroke-width="3"/>
-        <circle cx="32" cy="46" r="6" fill="#E07A5F" stroke="#1E3A52" stroke-width="3"/>
-      </svg>
-      <h1>今天的小老師</h1>
-    </div>
-    <p class="subtitle">陪你完成今天的練習。</p>
-
-    <button id="startBtn" class="start-btn">🎤 開始說話</button>
-
-    <div id="statusMsg" class="status-msg"></div>
-    <div id="taskArea" class="task-area"></div>
-
-    <p class="prompt-text">請說：「我是三年〇班〇號，我要開始了。」</p>
-  </div>
-
-  <script>
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzRi86w6Bt_MZO-utAPDPR7ujBojxobdR9YG7XGg4C_Vdu1Xlk6MV-nuIrg1CraukIJAw/exec";
-
-    let currentClassCode = "";
-    let currentSeatNo = "";
-
-    const startBtn = document.getElementById('startBtn');
-    const statusMsg = document.getElementById('statusMsg');
-    const taskArea = document.getElementById('taskArea');
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
-
-    if (recognition) recognition.lang = 'zh-TW';
+  if (!SpeechRecognition) {
+    alert('請使用 Google Chrome 或 Microsoft Edge 瀏覽器開啟。');
+  } else {
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'zh-TW';
 
     startBtn.addEventListener('click', () => {
       startBtn.innerText = '🎙️ 正在聽你說...';
       statusMsg.textContent = '';
       taskArea.innerHTML = '';
-      recognition.start();
+      try {
+        recognition.start();
+      } catch(e) {
+        startBtn.innerText = '🎤 開始說話';
+      }
     });
 
-    if (recognition) {
-      recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript;
-        parseStudentInfo(text);
-      };
-      recognition.onend = () => { startBtn.innerText = '🎤 開始說話'; };
+    recognition.onresult = (event) => {
+      const text = event.results[0][0].transcript;
+      parseStudentInfo(text);
+    };
+
+    recognition.onend = () => { startBtn.innerText = '🎤 開始說話'; };
+  }
+
+  function parseStudentInfo(text) {
+    const regex = /([1-9一二三四五六七八九1-9])\s*年\s*([0-9０-９一二三四五六七八九十]+)\s*班\s*(?:第)?\s*([0-9０-９一二三四五六七八九十]+)\s*號/;
+    const match = text.match(regex);
+
+    if (match) {
+      const grade = convertNum(match[1]);
+      const classNum = convertNum(match[2]);
+      const seatNum = convertNum(match[3]);
+
+      currentClassCode = `${grade}${classNum.padStart(2, '0')}`;
+      currentSeatNo = seatNum.padStart(2, '0');
+
+      statusMsg.style.color = '#2E7D32';
+      statusMsg.textContent = `你好，${grade}年${classNum}班${seatNum}號！`;
+
+      fetchPendingTasks(currentClassCode, currentSeatNo);
+    } else {
+      statusMsg.style.color = '#E07A5F';
+      statusMsg.textContent = '沒聽清楚，再試一次喔！';
     }
+  }
 
-    function parseStudentInfo(text) {
-      const regex = /([1-9一二三四五六七八九1-9])\s*年\s*([0-9０-９一二三四五六七八九十]+)\s*班\s*(?:第)?\s*([0-9０-９一二三四五六七八九十]+)\s*號/;
-      const match = text.match(regex);
+  function convertNum(str) {
+    const zhMap = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+    let num = str.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
+    return String(zhMap[num] || parseInt(num, 10) || num);
+  }
 
-      if (match) {
-        const grade = convertNum(match[1]);
-        const classNum = convertNum(match[2]);
-        const seatNum = convertNum(match[3]);
-
-        currentClassCode = `${grade}${classNum.padStart(2, '0')}`;
-        currentSeatNo = seatNum.padStart(2, '0');
-
-        statusMsg.style.color = '#2E7D32';
-        statusMsg.textContent = `你好，${grade}年${classNum}班${seatNum}號！`;
-
-        fetchPendingTasks(currentClassCode, currentSeatNo);
+  function fetchPendingTasks(classCode, seatNo) {
+    taskArea.innerHTML = '<p style="color: #718096;">尋找今日練習中...</p>';
+    fetch(GAS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'getPendingTasks', classCode, seatNo })
+    })
+    .then(res => res.json())
+    .then(res => {
+      if (res.status === 'success') {
+        renderTasks(res.data);
       } else {
-        statusMsg.style.color = '#E07A5F';
-        statusMsg.textContent = '沒聽清楚，再試一次喔！';
+        taskArea.innerHTML = `<p style="color:#E07A5F;">讀取失敗：${res.message}</p>`;
       }
+    });
+  }
+
+  function renderTasks(tasks) {
+    if (!tasks || tasks.length === 0) {
+      taskArea.innerHTML = `<div style="background:#E8F5E9;padding:16px;border-radius:16px;color:#2E7D32;">🎉 今天練習都完成了，太棒囉！</div>`;
+      return;
     }
 
-    function convertNum(str) {
-      const zhMap = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
-      let num = str.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
-      return String(zhMap[num] || parseInt(num, 10) || num);
-    }
+    let html = `<p style="color:#2D3748;font-weight:bold;margin-bottom:10px;text-align:left;">請選擇任務開始背誦：</p>`;
+    tasks.forEach(task => {
+      html += `
+        <div class="task-card" id="card-${task.taskId}">
+          <span class="task-badge">${task.type}</span>
+          <div class="task-title">${task.title}</div>
+          <button class="recite-btn" onclick="startReciting('${task.taskId}')">🎙️ 按我開始背誦</button>
+          <div class="ai-feedback" id="feedback-${task.taskId}" style="display:none;"></div>
+        </div>`;
+    });
+    taskArea.innerHTML = html;
+  }
 
-    function fetchPendingTasks(classCode, seatNo) {
-      taskArea.innerHTML = '<p style="color: #718096;">尋找今日練習中...</p>';
+  function startReciting(taskId) {
+    const btn = document.querySelector(`#card-${taskId} .recite-btn`);
+    const feedback = document.getElementById(`feedback-${taskId}`);
+
+    if (!SpeechRecognition) return;
+
+    btn.innerText = '🎙️ 傾聽背誦中...';
+    feedback.style.display = 'none';
+
+    const reciteRec = new SpeechRecognition();
+    reciteRec.lang = 'zh-TW';
+
+    reciteRec.start();
+
+    reciteRec.onresult = (event) => {
+      const speechText = event.results[0][0].transcript;
+      btn.innerText = '⏳ 小老師思考中...';
+
       fetch(GAS_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'getPendingTasks', classCode, seatNo })
+        body: JSON.stringify({
+          action: 'verifyRecitation',
+          classCode: currentClassCode,
+          seatNo: currentSeatNo,
+          taskId: taskId,
+          speechText: speechText
+        })
       })
       .then(res => res.json())
-      .then(res => renderTasks(res.data));
-    }
+      .then(res => {
+        btn.innerText = '🎙️ 按我重新背誦';
+        feedback.style.display = 'block';
 
-    function renderTasks(tasks) {
-      if (!tasks || tasks.length === 0) {
-        taskArea.innerHTML = `<div style="background:#E8F5E9;padding:16px;border-radius:16px;color:#2E7D32;">🎉 今天練習都完成了，太棒囉！</div>`;
-        return;
-      }
-
-      let html = `<p style="color:#2D3748;font-weight:bold;margin-bottom:10px;text-align:left;">請選擇任務開始背誦：</p>`;
-      tasks.forEach(task => {
-        html += `
-          <div class="task-card" id="card-${task.taskId}">
-            <span class="task-badge">${task.type}</span>
-            <div class="task-title">${task.title}</div>
-            <button class="recite-btn" onclick="startReciting('${task.taskId}')">🎙️ 按我開始背誦</button>
-            <div class="ai-feedback" id="feedback-${task.taskId}" style="display:none;"></div>
-          </div>`;
-      });
-      taskArea.innerHTML = html;
-    }
-
-    function startReciting(taskId) {
-      const btn = document.querySelector(`#card-${taskId} .recite-btn`);
-      const feedback = document.getElementById(`feedback-${taskId}`);
-
-      btn.innerText = '🎙️ 傾聽背誦中...';
-      feedback.style.display = 'none';
-
-      const reciteRec = new SpeechRecognition();
-      reciteRec.lang = 'zh-TW';
-      reciteRec.start();
-
-      reciteRec.onresult = (event) => {
-        const speechText = event.results[0][0].transcript;
-        btn.innerText = '⏳ 小老師思考中...';
-
-        fetch(GAS_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'verifyRecitation',
-            classCode: currentClassCode,
-            seatNo: currentSeatNo,
-            taskId: taskId,
-            speechText: speechText
-          })
-        })
-        .then(res => res.json())
-        .then(res => {
-          btn.innerText = '🎙️ 按我重新背誦';
-          feedback.style.display = 'block';
+        if (res.status === 'success' && res.data) {
           feedback.textContent = res.data.feedback;
 
           if (res.data.passed) {
             feedback.style.color = '#2E7D32';
+            // 通過後 2.5 秒刷新
             setTimeout(() => fetchPendingTasks(currentClassCode, currentSeatNo), 2500);
           } else {
             feedback.style.color = '#E07A5F';
           }
-        });
-      };
-    }
-  </script>
-</body>
-</html>
+        } else {
+          // 顯示後端傳回的具體錯誤訊息
+          feedback.style.color = '#E07A5F';
+          feedback.textContent = '評估失敗：' + (res.message || '後端未正確回應');
+        }
+      })
+      .catch(err => {
+        btn.innerText = '🎙️ 按我重新背誦';
+        feedback.style.display = 'block';
+        feedback.style.color = '#E07A5F';
+        feedback.textContent = '連線失敗：' + err.toString();
+      });
+    };
+
+    reciteRec.onerror = (event) => {
+      btn.innerText = '🎙️ 按我開始背誦';
+      feedback.style.display = 'block';
+      feedback.style.color = '#E07A5F';
+      feedback.textContent = '語音辨識失敗：' + event.error;
+    };
+  }
+</script>
