@@ -18,101 +18,79 @@
     }
     .card {
       background: #FFFFFF;
-      padding: 40px 28px 36px;
+      padding: 36px 28px;
       border-radius: 28px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
       text-align: center;
       max-width: 400px;
       width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
     }
     .header {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .header svg { width: 32px; height: 32px; }
-    h1 {
-      color: #2E7D32;
-      font-size: 1.8rem;
-      font-weight: 700;
-    }
-    .subtitle {
-      color: #718096;
-      font-size: 1rem;
-      margin-bottom: 28px;
-    }
+    h1 { color: #2E7D32; font-size: 1.75rem; font-weight: 700; }
+    .subtitle { color: #718096; font-size: 0.95rem; margin-bottom: 24px; }
+    
     .start-btn {
       background-color: #4CAF50;
       color: white;
       border: none;
-      padding: 14px 44px;
-      font-size: 1.2rem;
+      padding: 12px 36px;
+      font-size: 1.1rem;
       font-weight: bold;
       border-radius: 50px;
       cursor: pointer;
       box-shadow: 0 4px 14px rgba(76, 175, 80, 0.25);
-      transition: transform 0.1s, background-color 0.2s;
-    }
-    .start-btn:active { transform: scale(0.97); }
-
-    .status-msg {
-      margin-top: 20px;
-      font-size: 1.05rem;
-      color: #2E7D32;
-      font-weight: 600;
-      min-height: 1.5em;
     }
 
-    .task-area {
-      margin-top: 20px;
-      width: 100%;
-    }
+    .status-msg { margin-top: 16px; font-size: 1rem; color: #2E7D32; font-weight: 600; }
+    .task-area { margin-top: 20px; width: 100%; }
 
     .task-card {
       background: #F4EFEA;
       padding: 16px;
-      border-radius: 16px;
+      border-radius: 18px;
       margin-bottom: 12px;
       text-align: left;
     }
-
     .task-badge {
-      background: #4CAF50;
-      color: white;
-      padding: 3px 10px;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      display: inline-block;
-      margin-bottom: 6px;
+      background: #4CAF50; color: white;
+      padding: 2px 8px; border-radius: 10px;
+      font-size: 0.75rem; font-weight: bold;
+      display: inline-block; margin-bottom: 6px;
+    }
+    .task-title { color: #1E3A52; font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; }
+    
+    .recite-btn {
+      background-color: #E07A5F;
+      color: white; border: none;
+      padding: 8px 18px; font-size: 0.9rem;
+      border-radius: 20px; cursor: pointer;
+      font-weight: bold; width: 100%;
     }
 
-    .task-title {
-      color: #1E3A52;
-      font-size: 1.1rem;
-      font-weight: bold;
+    .ai-feedback {
+      margin-top: 10px; padding: 10px;
+      background: #FFFFFF; border-radius: 12px;
+      font-size: 0.9rem; color: #2E7D32;
     }
 
-    .prompt-text {
-      margin-top: 36px;
-      color: #718096;
-      font-size: 0.95rem;
-      letter-spacing: 0.5px;
-    }
+    .prompt-text { margin-top: 32px; color: #718096; font-size: 0.95rem; }
   </style>
 </head>
 <body>
 
   <div class="card">
     <div class="header">
-      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M32 38C32 24 18 16 18 16C18 16 18 29 32 38Z" fill="#7CB342" stroke="#1E3A52" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M32 38C32 20 48 16 48 16C48 16 44 31 32 38Z" fill="#8BC34A" stroke="#1E3A52" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M32 38V48" stroke="#1E3A52" stroke-width="3" stroke-linecap="round"/>
+      <svg viewBox="0 0 64 64" fill="none">
+        <path d="M32 38C32 24 18 16 18 16C18 16 18 29 32 38Z" fill="#7CB342" stroke="#1E3A52" stroke-width="3"/>
+        <path d="M32 38C32 20 48 16 48 16C48 16 44 31 32 38Z" fill="#8BC34A" stroke="#1E3A52" stroke-width="3"/>
+        <path d="M32 38V48" stroke="#1E3A52" stroke-width="3"/>
         <circle cx="32" cy="46" r="6" fill="#E07A5F" stroke="#1E3A52" stroke-width="3"/>
       </svg>
       <h1>今天的小老師</h1>
@@ -130,43 +108,31 @@
   <script>
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzRi86w6Bt_MZO-utAPDPR7ujBojxobdR9YG7XGg4C_Vdu1Xlk6MV-nuIrg1CraukIJAw/exec";
 
+    let currentClassCode = "";
+    let currentSeatNo = "";
+
     const startBtn = document.getElementById('startBtn');
     const statusMsg = document.getElementById('statusMsg');
     const taskArea = document.getElementById('taskArea');
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
-    if (!SpeechRecognition) {
-      alert('請使用 Google Chrome 或 Microsoft Edge 瀏覽器開啟。');
-    } else {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'zh-TW';
-      recognition.continuous = false;
+    if (recognition) recognition.lang = 'zh-TW';
 
-      startBtn.addEventListener('click', () => {
-        startBtn.innerText = '🎙️ 正在聽你說...';
-        statusMsg.textContent = '';
-        taskArea.innerHTML = '';
-        try {
-          recognition.start();
-        } catch (e) {
-          startBtn.innerText = '🎤 開始說話';
-        }
-      });
+    startBtn.addEventListener('click', () => {
+      startBtn.innerText = '🎙️ 正在聽你說...';
+      statusMsg.textContent = '';
+      taskArea.innerHTML = '';
+      recognition.start();
+    });
 
+    if (recognition) {
       recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
         parseStudentInfo(text);
       };
-
       recognition.onend = () => { startBtn.innerText = '🎤 開始說話'; };
-      recognition.onerror = (event) => {
-        startBtn.innerText = '🎤 開始說話';
-        if (event.error === 'not-allowed') {
-          statusMsg.style.color = '#E07A5F';
-          statusMsg.textContent = '請允許麥克風權限才能開始練習喔！';
-        }
-      };
     }
 
     function parseStudentInfo(text) {
@@ -178,73 +144,95 @@
         const classNum = convertNum(match[2]);
         const seatNum = convertNum(match[3]);
 
-        const classCode = `${grade}${classNum.padStart(2, '0')}`;
-        const paddedSeat = seatNum.padStart(2, '0');
+        currentClassCode = `${grade}${classNum.padStart(2, '0')}`;
+        currentSeatNo = seatNum.padStart(2, '0');
 
         statusMsg.style.color = '#2E7D32';
         statusMsg.textContent = `你好，${grade}年${classNum}班${seatNum}號！`;
 
-        fetchPendingTasks(classCode, paddedSeat);
-
+        fetchPendingTasks(currentClassCode, currentSeatNo);
       } else {
         statusMsg.style.color = '#E07A5F';
-        statusMsg.textContent = '沒聽清楚，再試一次喔！請參考下方提示。';
+        statusMsg.textContent = '沒聽清楚，再試一次喔！';
       }
     }
 
     function convertNum(str) {
       const zhMap = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
       let num = str.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
-      if (zhMap[num]) return String(zhMap[num]);
-      return String(parseInt(num, 10) || num);
+      return String(zhMap[num] || parseInt(num, 10) || num);
     }
 
     function fetchPendingTasks(classCode, seatNo) {
-      taskArea.innerHTML = '<p style="color: #718096;">正在尋找你的今日練習...</p>';
-
+      taskArea.innerHTML = '<p style="color: #718096;">尋找今日練習中...</p>';
       fetch(GAS_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'getPendingTasks',
-          classCode: classCode,
-          seatNo: seatNo
-        })
+        body: JSON.stringify({ action: 'getPendingTasks', classCode, seatNo })
       })
-      .then(response => response.json())
-      .then(res => {
-        if (res.status === 'success') {
-          renderTasks(res.data);
-        } else {
-          taskArea.innerHTML = `<p style="color: #E07A5F;">讀取失敗：${res.message}</p>`;
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        taskArea.innerHTML = '<p style="color: #E07A5F;">連線發生錯誤，請檢查網路設定。</p>';
-      });
+      .then(res => res.json())
+      .then(res => renderTasks(res.data));
     }
 
     function renderTasks(tasks) {
-      if (tasks.length === 0) {
-        taskArea.innerHTML = `
-          <div style="background: #E8F5E9; padding: 16px; border-radius: 16px; color: #2E7D32; font-weight: bold;">
-            🎉 太棒了！你已經完成所有背誦任務囉！
-          </div>`;
+      if (!tasks || tasks.length === 0) {
+        taskArea.innerHTML = `<div style="background:#E8F5E9;padding:16px;border-radius:16px;color:#2E7D32;">🎉 今天練習都完成了，太棒囉！</div>`;
         return;
       }
 
-      let html = `<p style="color: #2D3748; font-weight: bold; margin-bottom: 12px; text-align: left;">你今天有 ${tasks.length} 個任務：</p>`;
-
+      let html = `<p style="color:#2D3748;font-weight:bold;margin-bottom:10px;text-align:left;">請選擇任務開始背誦：</p>`;
       tasks.forEach(task => {
         html += `
-          <div class="task-card">
-            <span class="task-badge">${task.type || '練習'}</span>
+          <div class="task-card" id="card-${task.taskId}">
+            <span class="task-badge">${task.type}</span>
             <div class="task-title">${task.title}</div>
+            <button class="recite-btn" onclick="startReciting('${task.taskId}')">🎙️ 按我開始背誦</button>
+            <div class="ai-feedback" id="feedback-${task.taskId}" style="display:none;"></div>
           </div>`;
       });
-
       taskArea.innerHTML = html;
+    }
+
+    function startReciting(taskId) {
+      const btn = document.querySelector(`#card-${taskId} .recite-btn`);
+      const feedback = document.getElementById(`feedback-${taskId}`);
+
+      btn.innerText = '🎙️ 傾聽背誦中...';
+      feedback.style.display = 'none';
+
+      const reciteRec = new SpeechRecognition();
+      reciteRec.lang = 'zh-TW';
+      reciteRec.start();
+
+      reciteRec.onresult = (event) => {
+        const speechText = event.results[0][0].transcript;
+        btn.innerText = '⏳ 小老師思考中...';
+
+        fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'verifyRecitation',
+            classCode: currentClassCode,
+            seatNo: currentSeatNo,
+            taskId: taskId,
+            speechText: speechText
+          })
+        })
+        .then(res => res.json())
+        .then(res => {
+          btn.innerText = '🎙️ 按我重新背誦';
+          feedback.style.display = 'block';
+          feedback.textContent = res.data.feedback;
+
+          if (res.data.passed) {
+            feedback.style.color = '#2E7D32';
+            setTimeout(() => fetchPendingTasks(currentClassCode, currentSeatNo), 2500);
+          } else {
+            feedback.style.color = '#E07A5F';
+          }
+        });
+      };
     }
   </script>
 </body>
