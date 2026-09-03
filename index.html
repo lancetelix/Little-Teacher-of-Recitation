@@ -71,9 +71,10 @@
     .recite-btn {
       background-color: #E07A5F;
       color: white; border: none;
-      padding: 8px 18px; font-size: 0.9rem;
+      padding: 10px 18px; font-size: 0.95rem;
       border-radius: 20px; cursor: pointer;
       font-weight: bold; width: 100%;
+      transition: background-color 0.2s;
     }
 
     .ai-feedback {
@@ -113,6 +114,11 @@
     let currentClassCode = "";
     let currentSeatNo = "";
 
+    // 語音錄音緩衝變數
+    let activeRec = null;
+    let silenceTimer = null;
+    let accumulatedText = "";
+
     const startBtn = document.getElementById('startBtn');
     const statusMsg = document.getElementById('statusMsg');
     const taskArea = document.getElementById('taskArea');
@@ -122,26 +128,26 @@
     if (!SpeechRecognition) {
       alert('請使用 Google Chrome 或 Microsoft Edge 瀏覽器開啟。');
     } else {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'zh-TW';
+      const loginRec = new SpeechRecognition();
+      loginRec.lang = 'zh-TW';
 
       startBtn.addEventListener('click', () => {
         startBtn.innerText = '🎙️ 正在聽你說...';
         statusMsg.textContent = '';
         taskArea.innerHTML = '';
         try {
-          recognition.start();
+          loginRec.start();
         } catch(e) {
           startBtn.innerText = '🎤 開始說話';
         }
       });
 
-      recognition.onresult = (event) => {
+      loginRec.onresult = (event) => {
         const text = event.results[0][0].transcript;
         parseStudentInfo(text);
       };
 
-      recognition.onend = () => { startBtn.innerText = '🎤 開始說話'; };
+      loginRec.onend = () => { startBtn.innerText = '🎤 開始說話'; };
     }
 
     function parseStudentInfo(text) {
@@ -204,11 +210,24 @@
           <div class="task-card" id="card-${task.taskId}">
             <span class="task-badge">${task.type || '背誦'}</span>
             <div class="task-title">${task.title}</div>
-            <button class="recite-btn" onclick="startReciting('${task.taskId}')">🎙️ 按我開始背誦</button>
+            <button class="recite-btn" data-status="idle" onclick="handleReciteClick('${task.taskId}')">🎙️ 按我開始背誦</button>
             <div class="ai-feedback" id="feedback-${task.taskId}" style="display:none;"></div>
           </div>`;
       });
       taskArea.innerHTML = html;
+    }
+
+    // 處理背誦按鈕點擊（開啓背誦 或 提前手動送出）
+    function handleReciteClick(taskId) {
+      const btn = document.querySelector(`#card-${taskId} .recite-btn`);
+
+      if (btn.dataset.status === 'recording') {
+        // 如果正在錄音中，點擊即代表手動完成並送出
+        finishAndSubmitRecitation(taskId);
+      } else {
+        // 開始新的背誦錄音
+        startReciting(taskId);
+      }
     }
 
     function startReciting(taskId) {
@@ -217,62 +236,111 @@
 
       if (!SpeechRecognition) return;
 
-      btn.innerText = '🎙️ 傾聽背誦中...';
-      feedback.style.display = 'none';
+      // 重置並準備狀態
+      accumulatedText = "";
+      btn.dataset.status = 'recording';
+      btn.style.backgroundColor = '#4CAF50'; // 轉為綠色提示
+      btn.innerText = '✅ 我背完了（點我送出）';
 
-      const reciteRec = new SpeechRecognition();
-      reciteRec.lang = 'zh-TW';
+      feedback.style.display = 'block';
+      feedback.style.color = '#718096';
+      feedback.textContent = '小老師聽著喔，請慢慢背...';
 
-      reciteRec.start();
+      activeRec = new SpeechRecognition();
+      activeRec.lang = 'zh-TW';
+      activeRec.continuous = true; // 開啟連續辨識，停頓不中斷
+      activeRec.interimResults = false;
 
-      reciteRec.onresult = (event) => {
-        const speechText = event.results[0][0].transcript;
-        btn.innerText = '⏳ 小老師思考中...';
+      activeRec.onresult = (event) => {
+        let currentString = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            currentString += event.results[i][0].transcript;
+          }
+        }
+        if (currentString) {
+          accumulatedText += currentString + " ";
+          feedback.textContent = '有在聽喔：' + accumulatedText;
+        }
 
-        fetch(GAS_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'verifyRecitation',
-            classCode: currentClassCode,
-            seatNo: currentSeatNo,
-            taskId: taskId,
-            speechText: speechText
-          })
+        // 重新倒數：如果停頓超過 3.5 秒完全沒聲音，自動送出
+        clearTimeout(silenceTimer);
+        silenceTimer = setTimeout(() => {
+          if (btn.dataset.status === 'recording') {
+            finishAndSubmitRecitation(taskId);
+          }
+        }, 3500);
+      };
+
+      activeRec.onerror = (event) => {
+        if (event.error !== 'no-speech') {
+          console.error('語音辨識問題：', event.error);
+        }
+      };
+
+      activeRec.start();
+    }
+
+    function finishAndSubmitRecitation(taskId) {
+      const btn = document.querySelector(`#card-${taskId} .recite-btn`);
+      const feedback = document.getElementById(`feedback-${taskId}`);
+
+      clearTimeout(silenceTimer);
+
+      if (activeRec) {
+        try { activeRec.stop(); } catch(e) {}
+      }
+
+      btn.dataset.status = 'idle';
+      btn.style.backgroundColor = '#E07A5F';
+
+      const finalSpeech = accumulatedText.trim();
+
+      if (!finalSpeech) {
+        btn.innerText = '🎙️ 按我開始背誦';
+        feedback.style.color = '#E07A5F';
+        feedback.textContent = '還沒有聽到背誦內容喔，請再試一次！';
+        return;
+      }
+
+      btn.innerText = '⏳ 小老師思考中...';
+
+      fetch(GAS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'verifyRecitation',
+          classCode: currentClassCode,
+          seatNo: currentSeatNo,
+          taskId: taskId,
+          speechText: finalSpeech
         })
-        .then(res => res.json())
-        .then(res => {
-          btn.innerText = '🎙️ 按我重新背誦';
-          feedback.style.display = 'block';
+      })
+      .then(res => res.json())
+      .then(res => {
+        btn.innerText = '🎙️ 按我重新背誦';
+        feedback.style.display = 'block';
 
-          if (res.status === 'success' && res.data) {
-            feedback.textContent = res.data.feedback;
+        if (res.status === 'success' && res.data) {
+          feedback.textContent = res.data.feedback;
 
-            if (res.data.passed) {
-              feedback.style.color = '#2E7D32';
-              setTimeout(() => fetchPendingTasks(currentClassCode, currentSeatNo), 2500);
-            } else {
-              feedback.style.color = '#E07A5F';
-            }
+          if (res.data.passed) {
+            feedback.style.color = '#2E7D32';
+            setTimeout(() => fetchPendingTasks(currentClassCode, currentSeatNo), 2500);
           } else {
             feedback.style.color = '#E07A5F';
-            feedback.textContent = '評估失敗：' + (res.message || '後端未回應');
           }
-        })
-        .catch(err => {
-          btn.innerText = '🎙️ 按我重新背誦';
-          feedback.style.display = 'block';
+        } else {
           feedback.style.color = '#E07A5F';
-          feedback.textContent = '連線失敗：' + err.toString();
-        });
-      };
-
-      reciteRec.onerror = (event) => {
-        btn.innerText = '🎙️ 按我開始背誦';
+          feedback.textContent = '評估失敗：' + (res.message || '後端未回應');
+        }
+      })
+      .catch(err => {
+        btn.innerText = '🎙️ 按我重新背誦';
         feedback.style.display = 'block';
         feedback.style.color = '#E07A5F';
-        feedback.textContent = '語音辨識失敗：' + event.error;
-      };
+        feedback.textContent = '連線失敗：' + err.toString();
+      });
     }
   </script>
 </body>
