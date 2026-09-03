@@ -118,40 +118,55 @@
     let silenceTimer = null;
     let accumulatedText = "";
 
+    // 判斷是否為 iOS 設備 (iPhone, iPad)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     const startBtn = document.getElementById('startBtn');
     const statusMsg = document.getElementById('statusMsg');
     const taskArea = document.getElementById('taskArea');
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    // ========== 登入語音辨識 ==========
+    startBtn.addEventListener('click', () => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert('您的瀏覽器不支援語音辨識，請使用 Chrome 瀏覽器。');
+        return;
+      }
 
-    if (!SpeechRecognition) {
-      alert('請使用 Google Chrome 或 Microsoft Edge 瀏覽器開啟。');
-    } else {
+      startBtn.innerText = '🎙️ 正在聽你說...';
+      statusMsg.innerHTML = '';
+      taskArea.innerHTML = '';
+      
+      // 必須在點擊事件內建立實體，iOS 才不會阻擋
       const loginRec = new SpeechRecognition();
       loginRec.lang = 'zh-TW';
-
-      startBtn.addEventListener('click', () => {
-        startBtn.innerText = '🎙️ 正在聽你說...';
-        statusMsg.innerHTML = '';
-        taskArea.innerHTML = '';
-        try {
-          loginRec.start();
-        } catch(e) {
-          startBtn.innerText = '🎤 開始登入';
-        }
-      });
+      loginRec.continuous = false; // iOS 登入時強制 false
+      loginRec.interimResults = false;
 
       loginRec.onresult = (event) => {
         const text = event.results[0][0].transcript;
         parseStudentInfo(text);
       };
 
-      loginRec.onend = () => { startBtn.innerText = '🎤 開始登入'; };
-    }
+      loginRec.onerror = (event) => {
+        if (event.error !== 'no-speech') {
+          statusMsg.style.color = '#E07A5F';
+          statusMsg.textContent = '麥克風讀取失敗 (' + event.error + ')，請確認權限後再試一次。';
+        }
+      };
 
+      loginRec.onend = () => { startBtn.innerText = '🎤 開始登入'; };
+
+      try {
+        loginRec.start();
+      } catch(e) {
+        startBtn.innerText = '🎤 開始登入';
+      }
+    });
+
+    // ========== 解析班級與座號 ==========
     function parseStudentInfo(text) {
       let t = text.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
-      
       const numMap = {'一':'1','二':'2','兩':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9','十':'10','零':'0','〇':'0','O':'0'};
       t = t.replace(/十([一二三四五六七八九])/g, (m, p1) => "1" + numMap[p1]);
       t = t.replace(/([二三四五六七八九])十([一二三四五六七八九])?/g, (m, p1, p2) => numMap[p1] + (p2 ? numMap[p2] : "0"));
@@ -190,6 +205,7 @@
       }
     }
 
+    // ========== 撈取未完成任務 ==========
     function fetchPendingTasks(classCode, seatNo) {
       taskArea.innerHTML = '<p style="color: #718096;">尋找今日練習中...</p>';
       fetch(GAS_API_URL, {
@@ -238,11 +254,13 @@
       }
     }
 
+    // ========== 開始背誦 (加入 iOS 相容修復) ==========
     function startReciting(taskId) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+
       const btn = document.querySelector(`#card-${taskId} .recite-btn`);
       const feedback = document.getElementById(`feedback-${taskId}`);
-
-      if (!SpeechRecognition) return;
 
       accumulatedText = "";
       btn.dataset.status = 'recording';
@@ -255,18 +273,27 @@
 
       activeRec = new SpeechRecognition();
       activeRec.lang = 'zh-TW';
-      activeRec.continuous = true;
-      activeRec.interimResults = true; // 開啟即時字流，抓取毫秒級語音
+      
+      // iOS 避開 continuous 導致的死機，Android/PC 正常使用
+      activeRec.continuous = !isIOS;
+      activeRec.interimResults = !isIOS; 
 
       activeRec.onresult = (event) => {
-        // 如果已經按下了送出按鈕，就不再更新畫面的聽取狀態
         if (btn.dataset.status !== 'recording') return;
 
-        let fullText = "";
-        for (let i = 0; i < event.results.length; i++) {
-          fullText += event.results[i][0].transcript;
+        let currentString = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal || (!isIOS && event.results[i].isFinal === false)) {
+            currentString += event.results[i][0].transcript;
+          }
         }
-        accumulatedText = fullText;
+        
+        // 如果是 iOS，每次收到的是最終片段，直接累加
+        if (isIOS && currentString) {
+          accumulatedText += currentString + "，";
+        } else if (!isIOS) {
+          accumulatedText = currentString;
+        }
 
         if (accumulatedText.trim()) {
           feedback.textContent = '小老師聽到了：' + accumulatedText;
@@ -280,29 +307,43 @@
         }, 60000); 
       };
 
+      activeRec.onend = () => {
+        // 【iOS 關鍵修復】：如果 iOS 自動切斷麥克風，但學生還沒按「送出」，就偷偷幫他重新啟動
+        if (isIOS && btn.dataset.status === 'recording') {
+          try { activeRec.start(); } catch(e) {}
+        }
+      };
+
       activeRec.onerror = (event) => {
+        if (event.error === 'no-speech' && isIOS && btn.dataset.status === 'recording') {
+           // iOS 常常報 no-speech，忽略它並交給 onend 自動重啟
+           return;
+        }
         if (event.error !== 'no-speech') {
           console.error('語音辨識問題：', event.error);
         }
       };
 
-      activeRec.start();
+      try {
+        activeRec.start();
+      } catch (e) {
+        console.error(e);
+      }
     }
 
+    // ========== 送出給 OpenAI 評估 ==========
     function finishAndSubmitRecitation(taskId) {
       const btn = document.querySelector(`#card-${taskId} .recite-btn`);
       const feedback = document.getElementById(`feedback-${taskId}`);
 
       clearTimeout(silenceTimer);
-
-      // 立即鎖定狀態，防止瀏覽器延遲事件覆蓋畫面
       btn.dataset.status = 'submitting';
 
       if (activeRec) {
         try { activeRec.stop(); } catch(e) {}
       }
 
-      const finalSpeech = accumulatedText.trim();
+      const finalSpeech = accumulatedText.replace(/，$/, '').trim();
 
       if (!finalSpeech) {
         btn.dataset.status = 'idle';
