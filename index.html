@@ -114,7 +114,6 @@
     let currentClassCode = "";
     let currentSeatNo = "";
 
-    // 語音錄音緩衝變數
     let activeRec = null;
     let silenceTimer = null;
     let accumulatedText = "";
@@ -217,15 +216,11 @@
       taskArea.innerHTML = html;
     }
 
-    // 處理背誦按鈕點擊（開啓背誦 或 提前手動送出）
     function handleReciteClick(taskId) {
       const btn = document.querySelector(`#card-${taskId} .recite-btn`);
-
       if (btn.dataset.status === 'recording') {
-        // 如果正在錄音中，點擊即代表手動完成並送出
         finishAndSubmitRecitation(taskId);
       } else {
-        // 開始新的背誦錄音
         startReciting(taskId);
       }
     }
@@ -236,19 +231,18 @@
 
       if (!SpeechRecognition) return;
 
-      // 重置並準備狀態
       accumulatedText = "";
       btn.dataset.status = 'recording';
-      btn.style.backgroundColor = '#4CAF50'; // 轉為綠色提示
+      btn.style.backgroundColor = '#4CAF50';
       btn.innerText = '✅ 我背完了（點我送出）';
 
       feedback.style.display = 'block';
       feedback.style.color = '#718096';
-      feedback.textContent = '小老師聽著喔，請慢慢背...';
+      feedback.textContent = '小老師聽著喔，你可以慢慢想、慢慢背...';
 
       activeRec = new SpeechRecognition();
       activeRec.lang = 'zh-TW';
-      activeRec.continuous = true; // 開啟連續辨識，停頓不中斷
+      activeRec.continuous = true;
       activeRec.interimResults = false;
 
       activeRec.onresult = (event) => {
@@ -260,16 +254,16 @@
         }
         if (currentString) {
           accumulatedText += currentString + " ";
-          feedback.textContent = '有在聽喔：' + accumulatedText;
+          feedback.textContent = '小老師聽到了：' + accumulatedText;
         }
 
-        // 重新倒數：如果停頓超過 3.5 秒完全沒聲音，自動送出
+        // 重新設定倒數：靜音持續 60 秒（1分鐘）才自動送出
         clearTimeout(silenceTimer);
         silenceTimer = setTimeout(() => {
           if (btn.dataset.status === 'recording') {
             finishAndSubmitRecitation(taskId);
           }
-        }, 3500);
+        }, 60000); 
       };
 
       activeRec.onerror = (event) => {
@@ -299,7 +293,7 @@
       if (!finalSpeech) {
         btn.innerText = '🎙️ 按我開始背誦';
         feedback.style.color = '#E07A5F';
-        feedback.textContent = '還沒有聽到背誦內容喔，請再試一次！';
+        feedback.textContent = '還沒有聽到聲音喔，再試一次！';
         return;
       }
 
