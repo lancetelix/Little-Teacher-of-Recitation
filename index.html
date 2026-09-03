@@ -46,7 +46,9 @@
       border-radius: 50px;
       cursor: pointer;
       box-shadow: 0 4px 14px rgba(76, 175, 80, 0.25);
+      transition: transform 0.1s;
     }
+    .start-btn:active { transform: scale(0.97); }
 
     .status-msg { margin-top: 16px; font-size: 1rem; color: #2E7D32; font-weight: 600; }
     .task-area { margin-top: 20px; width: 100%; }
@@ -77,7 +79,7 @@
     .ai-feedback {
       margin-top: 10px; padding: 10px;
       background: #FFFFFF; border-radius: 12px;
-      font-size: 0.9rem; color: #2E7D32;
+      font-size: 0.9rem; line-height: 1.5;
     }
 
     .prompt-text { margin-top: 32px; color: #718096; font-size: 0.95rem; }
@@ -116,11 +118,11 @@
     const taskArea = document.getElementById('taskArea');
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
     if (!SpeechRecognition) {
       alert('請使用 Google Chrome 或 Microsoft Edge 瀏覽器開啟。');
     } else {
+      const recognition = new SpeechRecognition();
       recognition.lang = 'zh-TW';
 
       startBtn.addEventListener('click', () => {
@@ -160,7 +162,7 @@
         fetchPendingTasks(currentClassCode, currentSeatNo);
       } else {
         statusMsg.style.color = '#E07A5F';
-        statusMsg.textContent = '沒聽清楚，再試一次喔！';
+        statusMsg.textContent = '沒聽清楚，再試一次喔！請參考下方提示。';
       }
     }
 
@@ -184,12 +186,15 @@
         } else {
           taskArea.innerHTML = `<p style="color:#E07A5F;">讀取失敗：${res.message}</p>`;
         }
+      })
+      .catch(err => {
+        taskArea.innerHTML = `<p style="color:#E07A5F;">連線失敗，請檢查網路。</p>`;
       });
     }
 
     function renderTasks(tasks) {
       if (!tasks || tasks.length === 0) {
-        taskArea.innerHTML = `<div style="background:#E8F5E9;padding:16px;border-radius:16px;color:#2E7D32;">🎉 今天練習都完成了，太棒囉！</div>`;
+        taskArea.innerHTML = `<div style="background:#E8F5E9;padding:16px;border-radius:16px;color:#2E7D32;font-weight:bold;">🎉 今天練習都完成了，太棒囉！</div>`;
         return;
       }
 
@@ -197,7 +202,7 @@
       tasks.forEach(task => {
         html += `
           <div class="task-card" id="card-${task.taskId}">
-            <span class="task-badge">${task.type}</span>
+            <span class="task-badge">${task.type || '背誦'}</span>
             <div class="task-title">${task.title}</div>
             <button class="recite-btn" onclick="startReciting('${task.taskId}')">🎙️ 按我開始背誦</button>
             <div class="ai-feedback" id="feedback-${task.taskId}" style="display:none;"></div>
@@ -217,6 +222,7 @@
 
       const reciteRec = new SpeechRecognition();
       reciteRec.lang = 'zh-TW';
+
       reciteRec.start();
 
       reciteRec.onresult = (event) => {
