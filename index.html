@@ -43,7 +43,7 @@
     .subtitle {
       color: #718096;
       font-size: 1rem;
-      margin-bottom: 36px;
+      margin-bottom: 28px;
     }
     .start-btn {
       background-color: #4CAF50;
@@ -58,17 +58,47 @@
       transition: transform 0.1s, background-color 0.2s;
     }
     .start-btn:active { transform: scale(0.97); }
-    
-    /* 學生專用的對話提示區，不顯示任何系統 ID */
+
     .status-msg {
-      margin-top: 24px;
+      margin-top: 20px;
       font-size: 1.05rem;
       color: #2E7D32;
       font-weight: 600;
       min-height: 1.5em;
     }
+
+    .task-area {
+      margin-top: 20px;
+      width: 100%;
+    }
+
+    .task-card {
+      background: #F4EFEA;
+      padding: 16px;
+      border-radius: 16px;
+      margin-bottom: 12px;
+      text-align: left;
+    }
+
+    .task-badge {
+      background: #4CAF50;
+      color: white;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      display: inline-block;
+      margin-bottom: 6px;
+    }
+
+    .task-title {
+      color: #1E3A52;
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+
     .prompt-text {
-      margin-top: 40px;
+      margin-top: 36px;
       color: #718096;
       font-size: 0.95rem;
       letter-spacing: 0.5px;
@@ -91,15 +121,18 @@
 
     <button id="startBtn" class="start-btn">🎤 開始說話</button>
 
-    <!-- 對學生顯示的溫和提示（不含系統 ID） -->
     <div id="statusMsg" class="status-msg"></div>
+    <div id="taskArea" class="task-area"></div>
 
     <p class="prompt-text">請說：「我是三年〇班〇號，我要開始了。」</p>
   </div>
 
   <script>
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzRi86w6Bt_MZO-utAPDPR7ujBojxobdR9YG7XGg4C_Vdu1Xlk6MV-nuIrg1CraukIJAw/exec";
+
     const startBtn = document.getElementById('startBtn');
     const statusMsg = document.getElementById('statusMsg');
+    const taskArea = document.getElementById('taskArea');
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -113,6 +146,7 @@
       startBtn.addEventListener('click', () => {
         startBtn.innerText = '🎙️ 正在聽你說...';
         statusMsg.textContent = '';
+        taskArea.innerHTML = '';
         try {
           recognition.start();
         } catch (e) {
@@ -129,6 +163,7 @@
       recognition.onerror = (event) => {
         startBtn.innerText = '🎤 開始說話';
         if (event.error === 'not-allowed') {
+          statusMsg.style.color = '#E07A5F';
           statusMsg.textContent = '請允許麥克風權限才能開始練習喔！';
         }
       };
@@ -143,16 +178,13 @@
         const classNum = convertNum(match[2]);
         const seatNum = convertNum(match[3]);
 
-        // 系統背景處理班級代碼與內部 ID（不顯示給學生）
-        const internalClassCode = `${grade}${classNum.padStart(2, '0')}`;
-        const internalStudentId = `${internalClassCode}-${seatNum.padStart(2, '0')}`;
+        const classCode = `${grade}${classNum.padStart(2, '0')}`;
+        const paddedSeat = seatNum.padStart(2, '0');
 
-        // 畫面上只對學生給予親切回應
         statusMsg.style.color = '#2E7D32';
-        statusMsg.textContent = `你好，${grade}年${classNum}班${seatNum}號！正在幫你準備今天的練習...`;
+        statusMsg.textContent = `你好，${grade}年${classNum}班${seatNum}號！`;
 
-        // TODO: 接下來在這裡發送 internalClassCode 與 seatNum 到 GAS 查詢作業
-        fetchPendingTasks(internalClassCode, seatNum);
+        fetchPendingTasks(classCode, paddedSeat);
 
       } else {
         statusMsg.style.color = '#E07A5F';
@@ -168,8 +200,51 @@
     }
 
     function fetchPendingTasks(classCode, seatNo) {
-      // 這裡預留發送 API 給 GAS 的邏輯
-      console.log(`背景處理中：查詢班級 ${classCode} 座號 ${seatNo} 的未完成任務...`);
+      taskArea.innerHTML = '<p style="color: #718096;">正在尋找你的今日練習...</p>';
+
+      fetch(GAS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'getPendingTasks',
+          classCode: classCode,
+          seatNo: seatNo
+        })
+      })
+      .then(response => response.json())
+      .then(res => {
+        if (res.status === 'success') {
+          renderTasks(res.data);
+        } else {
+          taskArea.innerHTML = `<p style="color: #E07A5F;">讀取失敗：${res.message}</p>`;
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        taskArea.innerHTML = '<p style="color: #E07A5F;">連線發生錯誤，請檢查網路設定。</p>';
+      });
+    }
+
+    function renderTasks(tasks) {
+      if (tasks.length === 0) {
+        taskArea.innerHTML = `
+          <div style="background: #E8F5E9; padding: 16px; border-radius: 16px; color: #2E7D32; font-weight: bold;">
+            🎉 太棒了！你已經完成所有背誦任務囉！
+          </div>`;
+        return;
+      }
+
+      let html = `<p style="color: #2D3748; font-weight: bold; margin-bottom: 12px; text-align: left;">你今天有 ${tasks.length} 個任務：</p>`;
+
+      tasks.forEach(task => {
+        html += `
+          <div class="task-card">
+            <span class="task-badge">${task.type || '練習'}</span>
+            <div class="task-title">${task.title}</div>
+          </div>`;
+      });
+
+      taskArea.innerHTML = html;
     }
   </script>
 </body>
