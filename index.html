@@ -7,7 +7,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background-color: #FAF8F5; /* 規範指定的米白色背景 */
+      background-color: #FAF8F5;
       color: #2D3748;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
       display: flex;
@@ -34,9 +34,9 @@
       gap: 8px;
       margin-bottom: 8px;
     }
-    .header img, .header svg { width: 32px; height: 32px; }
+    .header svg { width: 32px; height: 32px; }
     h1 {
-      color: #2E7D32; /* 規範規定的主視覺綠色 */
+      color: #2E7D32;
       font-size: 1.8rem;
       font-weight: 700;
     }
@@ -46,7 +46,7 @@
       margin-bottom: 36px;
     }
     .start-btn {
-      background-color: #4CAF50; /* 規範指定的綠色按鈕 */
+      background-color: #4CAF50;
       color: white;
       border: none;
       padding: 14px 44px;
@@ -56,27 +56,22 @@
       cursor: pointer;
       box-shadow: 0 4px 14px rgba(76, 175, 80, 0.25);
       transition: transform 0.1s, background-color 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
     .start-btn:active { transform: scale(0.97); }
-    /* 關鍵：明確給學生的提示詞區塊 */
+    
+    /* 學生專用的對話提示區，不顯示任何系統 ID */
+    .status-msg {
+      margin-top: 24px;
+      font-size: 1.05rem;
+      color: #2E7D32;
+      font-weight: 600;
+      min-height: 1.5em;
+    }
     .prompt-text {
-      margin-top: 48px;
+      margin-top: 40px;
       color: #718096;
       font-size: 0.95rem;
       letter-spacing: 0.5px;
-    }
-    .result-box {
-      margin-top: 24px;
-      padding: 16px;
-      background: #F0F7F4;
-      border-radius: 16px;
-      width: 100%;
-      text-align: left;
-      font-size: 0.95rem;
-      line-height: 1.7;
     }
   </style>
 </head>
@@ -84,7 +79,6 @@
 
   <div class="card">
     <div class="header">
-      <!-- 幼芽 SVG -->
       <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M32 38C32 24 18 16 18 16C18 16 18 29 32 38Z" fill="#7CB342" stroke="#1E3A52" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M32 38C32 20 48 16 48 16C48 16 44 31 32 38Z" fill="#8BC34A" stroke="#1E3A52" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -95,32 +89,17 @@
     </div>
     <p class="subtitle">陪你完成今天的練習。</p>
 
-    <button id="startBtn" class="start-btn">
-      🎤 開始說話
-    </button>
+    <button id="startBtn" class="start-btn">🎤 開始說話</button>
 
-    <!-- 語音辨識結果調試框 -->
-    <div id="resultBox" class="result-box" style="display: none;">
-      <div><strong>說出的話：</strong><span id="transcriptText">-</span></div>
-      <hr style="border: none; border-top: 1px stroke #CBD5E0; margin: 8px 0;">
-      <div>年級：<span id="gradeVal">-</span></div>
-      <div>班級代碼：<span id="classCodeVal">-</span></div>
-      <div>座號：<span id="seatVal">-</span></div>
-      <div>內部識別 ID：<strong id="studentIdVal" style="color: #2E7D32;">-</strong></div>
-    </div>
+    <!-- 對學生顯示的溫和提示（不含系統 ID） -->
+    <div id="statusMsg" class="status-msg"></div>
 
-    <!-- 給學生的引導文字（必要項目） -->
     <p class="prompt-text">請說：「我是三年〇班〇號，我要開始了。」</p>
   </div>
 
   <script>
     const startBtn = document.getElementById('startBtn');
-    const resultBox = document.getElementById('resultBox');
-    const transcriptText = document.getElementById('transcriptText');
-    const gradeVal = document.getElementById('gradeVal');
-    const classCodeVal = document.getElementById('classCodeVal');
-    const seatVal = document.getElementById('seatVal');
-    const studentIdVal = document.getElementById('studentIdVal');
+    const statusMsg = document.getElementById('statusMsg');
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -133,18 +112,16 @@
 
       startBtn.addEventListener('click', () => {
         startBtn.innerText = '🎙️ 正在聽你說...';
+        statusMsg.textContent = '';
         try {
           recognition.start();
         } catch (e) {
-          alert('無法啟動麥克風：' + e.message);
           startBtn.innerText = '🎤 開始說話';
         }
       });
 
       recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
-        transcriptText.textContent = text;
-        resultBox.style.display = 'block';
         parseStudentInfo(text);
       };
 
@@ -152,9 +129,7 @@
       recognition.onerror = (event) => {
         startBtn.innerText = '🎤 開始說話';
         if (event.error === 'not-allowed') {
-          alert('請允許麥克風權限才能開始背誦喔！');
-        } else {
-          alert('語音辨識發生錯誤：' + event.error);
+          statusMsg.textContent = '請允許麥克風權限才能開始練習喔！';
         }
       };
     }
@@ -168,18 +143,20 @@
         const classNum = convertNum(match[2]);
         const seatNum = convertNum(match[3]);
 
-        const classCode = `${grade}${classNum.padStart(2, '0')}`;
-        const studentId = `${classCode}-${seatNum.padStart(2, '0')}`;
+        // 系統背景處理班級代碼與內部 ID（不顯示給學生）
+        const internalClassCode = `${grade}${classNum.padStart(2, '0')}`;
+        const internalStudentId = `${internalClassCode}-${seatNum.padStart(2, '0')}`;
 
-        gradeVal.textContent = grade;
-        classCodeVal.textContent = classCode;
-        seatVal.textContent = seatNum;
-        studentIdVal.textContent = studentId;
+        // 畫面上只對學生給予親切回應
+        statusMsg.style.color = '#2E7D32';
+        statusMsg.textContent = `你好，${grade}年${classNum}班${seatNum}號！正在幫你準備今天的練習...`;
+
+        // TODO: 接下來在這裡發送 internalClassCode 與 seatNum 到 GAS 查詢作業
+        fetchPendingTasks(internalClassCode, seatNum);
+
       } else {
-        gradeVal.textContent = '未辨識';
-        classCodeVal.textContent = '未辨識';
-        seatVal.textContent = '未辨識';
-        studentIdVal.textContent = '格式不符，請參考下方提示詞再試一次';
+        statusMsg.style.color = '#E07A5F';
+        statusMsg.textContent = '沒聽清楚，再試一次喔！請參考下方提示。';
       }
     }
 
@@ -188,6 +165,11 @@
       let num = str.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
       if (zhMap[num]) return String(zhMap[num]);
       return String(parseInt(num, 10) || num);
+    }
+
+    function fetchPendingTasks(classCode, seatNo) {
+      // 這裡預留發送 API 給 GAS 的邏輯
+      console.log(`背景處理中：查詢班級 ${classCode} 座號 ${seatNo} 的未完成任務...`);
     }
   </script>
 </body>
