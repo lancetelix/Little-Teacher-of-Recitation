@@ -50,7 +50,7 @@
     }
     .start-btn:active { transform: scale(0.97); }
 
-    .status-msg { margin-top: 16px; font-size: 1rem; color: #2E7D32; font-weight: 600; }
+    .status-msg { margin-top: 16px; font-size: 1rem; color: #2E7D32; font-weight: 600; line-height: 1.5; }
     .task-area { margin-top: 20px; width: 100%; }
 
     .task-card {
@@ -100,7 +100,7 @@
     </div>
     <p class="subtitle">陪你完成今天的練習。</p>
 
-    <button id="startBtn" class="start-btn">🎤 開始說話</button>
+    <button id="startBtn" class="start-btn">🎤 開始登入</button>
 
     <div id="statusMsg" class="status-msg"></div>
     <div id="taskArea" class="task-area"></div>
@@ -132,12 +132,12 @@
 
       startBtn.addEventListener('click', () => {
         startBtn.innerText = '🎙️ 正在聽你說...';
-        statusMsg.textContent = '';
+        statusMsg.innerHTML = '';
         taskArea.innerHTML = '';
         try {
           loginRec.start();
         } catch(e) {
-          startBtn.innerText = '🎤 開始說話';
+          startBtn.innerText = '🎤 開始登入';
         }
       });
 
@@ -146,35 +146,54 @@
         parseStudentInfo(text);
       };
 
-      loginRec.onend = () => { startBtn.innerText = '🎤 開始說話'; };
+      loginRec.onend = () => { startBtn.innerText = '🎤 開始登入'; };
     }
 
     function parseStudentInfo(text) {
-      const regex = /([1-9一二三四五六七八九1-9])\s*年\s*([0-9０-９一二三四五六七八九十]+)\s*班\s*(?:第)?\s*([0-9０-９一二三四五六七八九十]+)\s*號/;
-      const match = text.match(regex);
+      // 1. 全形轉半形
+      let t = text.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
+      
+      // 2. 中文數字精準轉阿拉伯數字 (解決十幾號、二十幾號的問題)
+      const numMap = {'一':'1','二':'2','兩':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9','十':'10','零':'0','〇':'0','O':'0'};
+      t = t.replace(/十([一二三四五六七八九])/g, (m, p1) => "1" + numMap[p1]); // 十一~十九
+      t = t.replace(/([二三四五六七八九])十([一二三四五六七八九])?/g, (m, p1, p2) => numMap[p1] + (p2 ? numMap[p2] : "0")); // 二十~九十九
+      t = t.replace(/十/g, "10"); 
+      t = t.replace(/[一二兩三四五六七八九零〇O]/g, m => numMap[m]); // 單個數字
 
-      if (match) {
-        const grade = convertNum(match[1]);
-        const classNum = convertNum(match[2]);
-        const seatNum = convertNum(match[3]);
+      let grade, classNum, seatNum;
 
-        currentClassCode = `${grade}${classNum.padStart(2, '0')}`;
-        currentSeatNo = seatNum.padStart(2, '0');
+      // 3. 智慧模糊辨識 (容許冗言贅字與台灣國語)
+      // 模式 A: 抓取 數字+年(連/級) + 數字+班 + 數字+號
+      const regexA = /([1-9]).*?[年連黏級].*?([0-9]+).*?班.*?([0-9]+).*?號/;
+      // 模式 B: 直接抓取 306班 8號 這種念法
+      const regexB = /([1-9])([0-9]{1,2}).*?班.*?([0-9]+).*?號/;
+
+      let matchA = t.match(regexA);
+      let matchB = t.match(regexB);
+
+      if (matchA) {
+        grade = matchA[1];
+        classNum = parseInt(matchA[2], 10);
+        seatNum = parseInt(matchA[3], 10);
+      } else if (matchB) {
+        grade = matchB[1];
+        classNum = parseInt(matchB[2], 10);
+        seatNum = parseInt(matchB[3], 10);
+      }
+
+      if (grade && classNum && seatNum) {
+        currentClassCode = `${grade}${String(classNum).padStart(2, '0')}`;
+        currentSeatNo = String(seatNum).padStart(2, '0');
 
         statusMsg.style.color = '#2E7D32';
         statusMsg.textContent = `你好，${grade}年${classNum}班${seatNum}號！`;
 
         fetchPendingTasks(currentClassCode, currentSeatNo);
       } else {
+        // 如果失敗，印出系統聽到的內容讓老師/學生知道哪裡出錯
         statusMsg.style.color = '#E07A5F';
-        statusMsg.textContent = '沒聽清楚，再試一次喔！請參考下方提示。';
+        statusMsg.innerHTML = `沒聽清楚班級或座號喔！<br><span style="font-size:0.85rem;color:#718096;">(剛才小老師聽到的是：「${text}」)</span>`;
       }
-    }
-
-    function convertNum(str) {
-      const zhMap = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
-      let num = str.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
-      return String(zhMap[num] || parseInt(num, 10) || num);
     }
 
     function fetchPendingTasks(classCode, seatNo) {
@@ -203,7 +222,7 @@
         return;
       }
 
-      let html = `<p style="color:#2D3748;font-weight:bold;margin-bottom:10px;text-align:left;">請選擇任務開始背誦：</p>`;
+      let html = `<p style="color:#2D3748;font-weight:bold;margin-bottom:10px;text-align:left;">請選擇任務開始練習：</p>`;
       tasks.forEach(task => {
         html += `
           <div class="task-card" id="card-${task.taskId}">
@@ -257,7 +276,6 @@
           feedback.textContent = '小老師聽到了：' + accumulatedText;
         }
 
-        // 重新設定倒數：靜音持續 60 秒（1分鐘）才自動送出
         clearTimeout(silenceTimer);
         silenceTimer = setTimeout(() => {
           if (btn.dataset.status === 'recording') {
