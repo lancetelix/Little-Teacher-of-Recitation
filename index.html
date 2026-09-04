@@ -36,55 +36,56 @@
     h1 { color: #2E7D32; font-size: 1.75rem; font-weight: 700; }
     .subtitle { color: #718096; font-size: 0.95rem; margin-bottom: 24px; }
     
+    .login-container { display: flex; flex-direction: column; gap: 12px; align-items: center; width: 100%; margin-top: 10px; }
+    .divider { color: #A0AEC0; font-size: 0.85rem; display: flex; align-items: center; width: 100%; margin: 8px 0; }
+    .divider::before, .divider::after { content: ""; flex: 1; border-bottom: 1px solid #E2E8F0; margin: 0 10px; }
+    
     .start-btn {
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      padding: 12px 36px;
-      font-size: 1.1rem;
-      font-weight: bold;
-      border-radius: 50px;
-      cursor: pointer;
+      background-color: #4CAF50; color: white; border: none;
+      padding: 14px 20px; font-size: 1.1rem; font-weight: bold;
+      border-radius: 50px; cursor: pointer; width: 100%;
       box-shadow: 0 4px 14px rgba(76, 175, 80, 0.25);
+    }
+
+    .manual-input { display: flex; gap: 8px; width: 100%; }
+    .manual-input input { 
+      flex: 1; padding: 12px 16px; border-radius: 50px; 
+      border: 1px solid #CBD5E0; text-align: center; font-size: 1rem; 
+    }
+    .manual-input button { 
+      padding: 12px 24px; background: #E07A5F; color: white; 
+      border: none; border-radius: 50px; font-weight: bold; cursor: pointer; white-space: nowrap;
     }
 
     .status-msg { margin-top: 16px; font-size: 1rem; color: #2E7D32; font-weight: 600; line-height: 1.5; }
     .task-area { margin-top: 20px; width: 100%; }
 
     .task-card {
-      background: #F4EFEA;
-      padding: 16px;
-      border-radius: 18px;
-      margin-bottom: 12px;
-      text-align: left;
+      background: #F4EFEA; padding: 16px; border-radius: 18px;
+      margin-bottom: 12px; text-align: left;
     }
     .task-badge {
-      background: #4CAF50; color: white;
-      padding: 2px 8px; border-radius: 10px;
-      font-size: 0.75rem; font-weight: bold;
-      display: inline-block; margin-bottom: 6px;
+      background: #4CAF50; color: white; padding: 2px 8px; border-radius: 10px;
+      font-size: 0.75rem; font-weight: bold; display: inline-block; margin-bottom: 6px;
     }
     .task-title { color: #1E3A52; font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; }
     
     .recite-btn {
-      background-color: #E07A5F;
-      color: white; border: none;
-      padding: 10px 18px; font-size: 0.95rem;
-      border-radius: 20px; cursor: pointer;
-      font-weight: bold; width: 100%;
+      background-color: #E07A5F; color: white; border: none;
+      padding: 10px 18px; font-size: 0.95rem; border-radius: 20px; 
+      cursor: pointer; font-weight: bold; width: 100%;
     }
 
     .ai-feedback {
-      margin-top: 10px; padding: 10px;
-      background: #FFFFFF; border-radius: 12px;
-      font-size: 0.9rem; line-height: 1.5;
+      margin-top: 10px; padding: 10px; background: #FFFFFF; 
+      border-radius: 12px; font-size: 0.9rem; line-height: 1.5;
     }
 
-    .prompt-text { margin-top: 32px; color: #718096; font-size: 0.95rem; }
-    .manual-input { display: flex; gap: 6px; margin-top: 12px; }
-    .manual-input input { flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid #CBD5E0; }
-    .manual-input button { padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 12px; font-weight: bold; }
-  </style>
+    .sys-error {
+      display: none; color: #D32F2F; font-size: 0.85rem; margin-top: 15px;
+      background: #FFEBEE; padding: 12px; border-radius: 8px; text-align: left;
+    }
+  </script>
 </head>
 <body>
 
@@ -100,21 +101,35 @@
     </div>
     <p class="subtitle">陪你完成今天的練習。</p>
 
-    <button id="startBtn" class="start-btn">🎤 開始登入</button>
+    <!-- 登入區塊：同時顯示語音與輸入框 -->
+    <div id="loginSection" class="login-container">
+      <button id="startBtn" class="start-btn">🎤 語音自動登入</button>
+      <div class="divider">或使用鍵盤輸入</div>
+      <div class="manual-input">
+        <input type="text" id="studentInput" placeholder="輸入：3年6班8號">
+        <button onclick="submitManualLogin()">確定</button>
+      </div>
+    </div>
 
     <div id="statusMsg" class="status-msg"></div>
     <div id="taskArea" class="task-area"></div>
-
-    <p class="prompt-text">請說或輸入：「我是三年〇班〇號」</p>
+    <div id="sysError" class="sys-error"></div>
   </div>
 
   <script>
+    // 攔截並印出所有可能造成「沒反應」的隱藏錯誤
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+      const errBox = document.getElementById('sysError');
+      errBox.style.display = 'block';
+      errBox.innerHTML += `<strong>系統攔截到錯誤：</strong><br>${msg} (行數 ${lineNo})`;
+      return false;
+    };
+
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzRi86w6Bt_MZO-utAPDPR7ujBojxobdR9YG7XGg4C_Vdu1Xlk6MV-nuIrg1CraukIJAw/exec";
 
     let currentClassCode = "";
     let currentSeatNo = "";
 
-    // 偵測是否為 iOS 設備
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     let mediaRecorder = null;
@@ -123,22 +138,18 @@
     let speechTextBuffer = "";
 
     const startBtn = document.getElementById('startBtn');
+    const loginSection = document.getElementById('loginSection');
     const statusMsg = document.getElementById('statusMsg');
     const taskArea = document.getElementById('taskArea');
 
-    // 1. 登入按鈕點擊
+    // 語音登入
     startBtn.addEventListener('click', () => {
       statusMsg.innerHTML = '';
       
-      // 在 iOS 上完全避開 Web Speech，直接提供文字輸入選項，確保不卡關
-      if (isIOS) {
-        showManualLoginInput();
-        return;
-      }
-
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        showManualLoginInput();
+        statusMsg.style.color = '#E07A5F';
+        statusMsg.textContent = '此裝置不支援語音登入，請直接在下方輸入框打字登入喔！';
         return;
       }
 
@@ -147,26 +158,27 @@
       loginRec.lang = 'zh-TW';
 
       loginRec.onresult = (e) => parseStudentInfo(e.results[0][0].transcript);
-      loginRec.onerror = () => showManualLoginInput();
-      loginRec.onend = () => { startBtn.innerText = '🎤 開始登入'; };
+      loginRec.onerror = (e) => {
+        startBtn.innerText = '🎤 語音自動登入';
+        statusMsg.style.color = '#E07A5F';
+        statusMsg.textContent = '麥克風沒聽清楚，你可以再按一次，或直接在下方打字登入喔！';
+      };
+      loginRec.onend = () => { startBtn.innerText = '🎤 語音自動登入'; };
 
-      try { loginRec.start(); } catch(e) { showManualLoginInput(); }
+      try { loginRec.start(); } catch(e) { 
+        startBtn.innerText = '🎤 語音自動登入';
+      }
     });
 
-    function showManualLoginInput() {
-      startBtn.innerText = '🎤 開始登入';
-      statusMsg.style.color = '#718096';
-      statusMsg.innerHTML = `
-        <p style="margin-bottom:6px;font-size:0.9rem;">請輸入身分（例如 3年6班8號）：</p>
-        <div class="manual-input">
-          <input type="text" id="studentInput" placeholder="3年6班8號">
-          <button onclick="submitManualLogin()">確定</button>
-        </div>`;
-    }
-
+    // 鍵盤手動登入
     function submitManualLogin() {
-      const val = document.getElementById('studentInput').value;
-      if (val) parseStudentInfo(val);
+      const val = document.getElementById('studentInput').value.trim();
+      if (val) {
+        parseStudentInfo(val);
+      } else {
+        statusMsg.style.color = '#E07A5F';
+        statusMsg.textContent = '請先輸入班級與座號喔！';
+      }
     }
 
     function parseStudentInfo(text) {
@@ -182,12 +194,13 @@
         currentClassCode = `${match[1]}${String(match[2]).padStart(2, '0')}`;
         currentSeatNo = String(match[3]).padStart(2, '0');
 
+        loginSection.style.display = 'none'; // 登入成功後隱藏登入區塊
         statusMsg.style.color = '#2E7D32';
         statusMsg.textContent = `你好，${match[1]}年${match[2]}班${match[3]}號！`;
         fetchPendingTasks(currentClassCode, currentSeatNo);
       } else {
         statusMsg.style.color = '#E07A5F';
-        statusMsg.innerHTML = `沒看懂班級座號喔！格式請如：「3年6班8號」<br><span style="font-size:0.8rem;color:#718096;">(剛才聽到的是：「${text}」)</span>`;
+        statusMsg.innerHTML = `沒看懂班級座號喔！格式請如：「3年6班8號」<br><span style="font-size:0.8rem;color:#718096;">(剛才收到的是：「${text}」)</span>`;
       }
     }
 
@@ -241,7 +254,6 @@
       }
     }
 
-    // 關鍵修復：完全在點擊事件內「同步」開啟麥克風，滿足 iOS 安全性
     function startRecordingTrack(taskId) {
       const btn = document.querySelector(`#card-${taskId} .recite-btn`);
       const feedback = document.getElementById(`feedback-${taskId}`);
@@ -254,36 +266,46 @@
       feedback.style.display = 'block';
       feedback.style.color = '#718096';
 
-      // iOS 設備：100% 同步調用 getUserMedia，跳過所有非同步語音 API
+      // 針對蘋果 iOS 設備的強制 HTML5 錄音
       if (isIOS) {
         feedback.textContent = '🎙️ 錄音中，背完請按綠色按鈕...';
         
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+           feedback.style.color = '#E07A5F';
+           feedback.textContent = '您的蘋果設備不支援網頁錄音功能，請檢查權限。';
+           return;
+        }
+
         navigator.mediaDevices.getUserMedia({ audio: true })
           .then(stream => {
             audioStream = stream;
             audioChunks = [];
             
             let options = {};
-            if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
-            else if (MediaRecorder.isTypeSupported('audio/aac')) options = { mimeType: 'audio/aac' };
-
-            mediaRecorder = new MediaRecorder(stream, options);
-            mediaRecorder.ondataavailable = e => {
-              if (e.data.size > 0) audioChunks.push(e.data);
-            };
-            mediaRecorder.start();
+            if (typeof MediaRecorder !== 'undefined') {
+              if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
+              else if (MediaRecorder.isTypeSupported('audio/aac')) options = { mimeType: 'audio/aac' };
+              
+              mediaRecorder = new MediaRecorder(stream, options);
+              mediaRecorder.ondataavailable = e => {
+                if (e.data.size > 0) audioChunks.push(e.data);
+              };
+              mediaRecorder.start();
+            } else {
+               throw new Error("iOS 版本過舊，不支援 MediaRecorder");
+            }
           })
           .catch(err => {
             btn.dataset.status = 'idle';
             btn.style.backgroundColor = '#E07A5F';
             btn.innerText = '🎙️ 按我開始背誦';
             feedback.style.color = '#E07A5F';
-            feedback.textContent = '麥克風開啟失敗，請重整網頁再試。';
+            feedback.textContent = `麥克風錯誤：${err.message}。請確認設定 > Safari > 麥克風已允許。`;
           });
         return;
       }
 
-      // Android / 電腦版：保持免費的 Web Speech API
+      // Android / PC 設備：使用 Web Speech API
       feedback.textContent = '小老師聽著喔，請慢慢背...';
       speechTextBuffer = "";
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
