@@ -85,7 +85,7 @@
       display: none; color: #D32F2F; font-size: 0.85rem; margin-top: 15px;
       background: #FFEBEE; padding: 12px; border-radius: 8px; text-align: left;
     }
-  </script>
+  </style>
 </head>
 <body>
 
@@ -101,13 +101,12 @@
     </div>
     <p class="subtitle">陪你完成今天的練習。</p>
 
-    <!-- 登入區塊：同時顯示語音與輸入框 -->
     <div id="loginSection" class="login-container">
       <button id="startBtn" class="start-btn">🎤 語音自動登入</button>
       <div class="divider">或使用鍵盤輸入</div>
       <div class="manual-input">
         <input type="text" id="studentInput" placeholder="輸入：3年6班8號">
-        <button onclick="submitManualLogin()">確定</button>
+        <button id="manualBtn">確定</button>
       </div>
     </div>
 
@@ -117,11 +116,12 @@
   </div>
 
   <script>
-    // 攔截並印出所有可能造成「沒反應」的隱藏錯誤
-    window.onerror = function(msg, url, lineNo, columnNo, error) {
+    window.onerror = function(msg, url, lineNo) {
       const errBox = document.getElementById('sysError');
-      errBox.style.display = 'block';
-      errBox.innerHTML += `<strong>系統攔截到錯誤：</strong><br>${msg} (行數 ${lineNo})`;
+      if (errBox) {
+        errBox.style.display = 'block';
+        errBox.innerHTML += '<strong>語法錯誤：</strong> ' + msg + ' (第 ' + lineNo + ' 行)';
+      }
       return false;
     };
 
@@ -138,15 +138,15 @@
     let speechTextBuffer = "";
 
     const startBtn = document.getElementById('startBtn');
+    const manualBtn = document.getElementById('manualBtn');
     const loginSection = document.getElementById('loginSection');
     const statusMsg = document.getElementById('statusMsg');
     const taskArea = document.getElementById('taskArea');
 
-    // 語音登入
-    startBtn.addEventListener('click', () => {
+    startBtn.addEventListener('click', function() {
       statusMsg.innerHTML = '';
-      
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
       if (!SpeechRecognition) {
         statusMsg.style.color = '#E07A5F';
         statusMsg.textContent = '此裝置不支援語音登入，請直接在下方輸入框打字登入喔！';
@@ -157,21 +157,18 @@
       const loginRec = new SpeechRecognition();
       loginRec.lang = 'zh-TW';
 
-      loginRec.onresult = (e) => parseStudentInfo(e.results[0][0].transcript);
-      loginRec.onerror = (e) => {
+      loginRec.onresult = function(e) { parseStudentInfo(e.results[0][0].transcript); };
+      loginRec.onerror = function() {
         startBtn.innerText = '🎤 語音自動登入';
         statusMsg.style.color = '#E07A5F';
-        statusMsg.textContent = '麥克風沒聽清楚，你可以再按一次，或直接在下方打字登入喔！';
+        statusMsg.textContent = '沒聽清楚，請再試一次或直接打字登入喔！';
       };
-      loginRec.onend = () => { startBtn.innerText = '🎤 語音自動登入'; };
+      loginRec.onend = function() { startBtn.innerText = '🎤 語音自動登入'; };
 
-      try { loginRec.start(); } catch(e) { 
-        startBtn.innerText = '🎤 語音自動登入';
-      }
+      try { loginRec.start(); } catch(e) { startBtn.innerText = '🎤 語音自動登入'; }
     });
 
-    // 鍵盤手動登入
-    function submitManualLogin() {
+    manualBtn.addEventListener('click', function() {
       const val = document.getElementById('studentInput').value.trim();
       if (val) {
         parseStudentInfo(val);
@@ -179,28 +176,29 @@
         statusMsg.style.color = '#E07A5F';
         statusMsg.textContent = '請先輸入班級與座號喔！';
       }
-    }
+    });
 
     function parseStudentInfo(text) {
-      let t = text.replace(/[０-％]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
+      let t = text.replace(/[０-％]/g, function(s) { return String.fromCharCode(s.charCodeAt(0) - 0xfee0); });
       const numMap = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'零':0,'〇':0};
-      t = t.replace(/十([一二三四五六七八九])/g, (m, p1) => "1" + numMap[p1]);
-      t = t.replace(/([二三四五六七八九])十([一二三四五六七八九])?/g, (m, p1, p2) => numMap[p1] + (p2 ? numMap[p2] : "0"));
-      t = t.replace(/十/g, "10").replace(/[一二兩三四五六七八九零〇]/g, m => numMap[m]);
+      
+      t = t.replace(/十([一二三四五六七八九])/g, function(m, p1) { return "1" + numMap[p1]; });
+      t = t.replace(/([二三四五六七八九])十([一二三四五六七八九])?/g, function(m, p1, p2) { return numMap[p1] + (p2 ? numMap[p2] : "0"); });
+      t = t.replace(/十/g, "10").replace(/[一二兩三四五六七八九零〇]/g, function(m) { return numMap[m]; });
 
       const match = t.match(/([1-9]).*?([0-9]+).*?班.*?([0-9]+).*?號/) || t.match(/([1-9])([0-9]{2}).*?([0-9]+).*?號/);
 
       if (match) {
-        currentClassCode = `${match[1]}${String(match[2]).padStart(2, '0')}`;
+        currentClassCode = match[1] + String(match[2]).padStart(2, '0');
         currentSeatNo = String(match[3]).padStart(2, '0');
 
-        loginSection.style.display = 'none'; // 登入成功後隱藏登入區塊
+        loginSection.style.display = 'none';
         statusMsg.style.color = '#2E7D32';
-        statusMsg.textContent = `你好，${match[1]}年${match[2]}班${match[3]}號！`;
+        statusMsg.textContent = "你好，" + match[1] + "年" + match[2] + "班" + match[3] + "號！";
         fetchPendingTasks(currentClassCode, currentSeatNo);
       } else {
         statusMsg.style.color = '#E07A5F';
-        statusMsg.innerHTML = `沒看懂班級座號喔！格式請如：「3年6班8號」<br><span style="font-size:0.8rem;color:#718096;">(剛才收到的是：「${text}」)</span>`;
+        statusMsg.innerHTML = '沒看懂班級座號喔！格式請如：「3年6班8號」<br><span style="font-size:0.8rem;color:#718096;">(收到的是：「' + text + '」)</span>';
       }
     }
 
@@ -209,44 +207,43 @@
       fetch(GAS_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'getPendingTasks', classCode, seatNo })
+        body: JSON.stringify({ action: 'getPendingTasks', classCode: classCode, seatNo: seatNo })
       })
-      .then(res => res.json())
-      .then(res => {
+      .then(function(res) { return res.json(); })
+      .then(function(res) {
         if (res.status === 'success') renderTasks(res.data);
-        else taskArea.innerHTML = `<p style="color:#E07A5F;">讀取失敗：${res.message}</p>`;
+        else taskArea.innerHTML = '<p style="color:#E07A5F;">讀取失敗：' + res.message + '</p>';
       });
     }
 
     function renderTasks(tasks) {
       if (!tasks || tasks.length === 0) {
-        taskArea.innerHTML = `<div style="background:#E8F5E9;padding:16px;border-radius:16px;color:#2E7D32;font-weight:bold;">🎉 今天練習都完成了，太棒囉！</div>`;
+        taskArea.innerHTML = '<div style="background:#E8F5E9;padding:16px;border-radius:16px;color:#2E7D32;font-weight:bold;">🎉 今天練習都完成了，太棒囉！</div>';
         return;
       }
 
-      let html = `<p style="color:#2D3748;font-weight:bold;margin-bottom:10px;text-align:left;">請選擇任務開始練習：</p>`;
-      tasks.forEach(task => {
-        html += `
-          <div class="task-card" id="card-${task.taskId}">
-            <span class="task-badge">${task.type || '背誦'}</span>
-            <div class="task-title">${task.title}</div>
-            <button class="recite-btn" data-status="idle" onclick="handleReciteClick('${task.taskId}')">🎙️ 按我開始背誦</button>
-            <div class="ai-feedback" id="feedback-${task.taskId}" style="display:none;"></div>
-          </div>`;
+      let html = '<p style="color:#2D3748;font-weight:bold;margin-bottom:10px;text-align:left;">請選擇任務開始練習：</p>';
+      tasks.forEach(function(task) {
+        html += '<div class="task-card" id="card-' + task.taskId + '">' +
+          '<span class="task-badge">' + (task.type || '背誦') + '</span>' +
+          '<div class="task-title">' + task.title + '</div>' +
+          '<button class="recite-btn" data-status="idle" onclick="handleReciteClick(\'' + task.taskId + '\')">🎙️ 按我開始背誦</button>' +
+          '<div class="ai-feedback" id="feedback-' + task.taskId + '" style="display:none;"></div>' +
+        '</div>';
       });
       taskArea.innerHTML = html;
     }
 
     function releaseHardwareStream() {
       if (audioStream) {
-        audioStream.getTracks().forEach(track => track.stop());
+        audioStream.getTracks().forEach(function(track) { track.stop(); });
         audioStream = null;
       }
       mediaRecorder = null;
     }
 
     function handleReciteClick(taskId) {
-      const btn = document.querySelector(`#card-${taskId} .recite-btn`);
+      const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
       if (btn.dataset.status === 'recording') {
         stopAndSubmit(taskId);
       } else {
@@ -255,8 +252,8 @@
     }
 
     function startRecordingTrack(taskId) {
-      const btn = document.querySelector(`#card-${taskId} .recite-btn`);
-      const feedback = document.getElementById(`feedback-${taskId}`);
+      const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
+      const feedback = document.getElementById('feedback-' + taskId);
 
       releaseHardwareStream();
 
@@ -266,46 +263,37 @@
       feedback.style.display = 'block';
       feedback.style.color = '#718096';
 
-      // 針對蘋果 iOS 設備的強制 HTML5 錄音
       if (isIOS) {
         feedback.textContent = '🎙️ 錄音中，背完請按綠色按鈕...';
         
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
            feedback.style.color = '#E07A5F';
-           feedback.textContent = '您的蘋果設備不支援網頁錄音功能，請檢查權限。';
+           feedback.textContent = '您的蘋果設備不支援網頁錄音功能。';
            return;
         }
 
         navigator.mediaDevices.getUserMedia({ audio: true })
-          .then(stream => {
+          .then(function(stream) {
             audioStream = stream;
             audioChunks = [];
-            
             let options = {};
             if (typeof MediaRecorder !== 'undefined') {
-              if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
-              else if (MediaRecorder.isTypeSupported('audio/aac')) options = { mimeType: 'audio/aac' };
-              
+              if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
               mediaRecorder = new MediaRecorder(stream, options);
-              mediaRecorder.ondataavailable = e => {
-                if (e.data.size > 0) audioChunks.push(e.data);
-              };
+              mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data); };
               mediaRecorder.start();
-            } else {
-               throw new Error("iOS 版本過舊，不支援 MediaRecorder");
             }
           })
-          .catch(err => {
+          .catch(function(err) {
             btn.dataset.status = 'idle';
             btn.style.backgroundColor = '#E07A5F';
             btn.innerText = '🎙️ 按我開始背誦';
             feedback.style.color = '#E07A5F';
-            feedback.textContent = `麥克風錯誤：${err.message}。請確認設定 > Safari > 麥克風已允許。`;
+            feedback.textContent = '麥克風開啟失敗：' + err.message;
           });
         return;
       }
 
-      // Android / PC 設備：使用 Web Speech API
       feedback.textContent = '小老師聽著喔，請慢慢背...';
       speechTextBuffer = "";
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -315,34 +303,34 @@
         rec.lang = 'zh-TW';
         rec.continuous = true;
 
-        rec.onresult = (e) => {
+        rec.onresult = function(e) {
           for (let i = e.resultIndex; i < e.results.length; i++) {
             if (e.results[i].isFinal) speechTextBuffer += e.results[i][0].transcript;
           }
           if (speechTextBuffer) feedback.textContent = '小老師聽到了：' + speechTextBuffer;
         };
 
-        try { rec.start(); return; } catch(e) {}
+        try { rec.start(); } catch(e) {}
       }
     }
 
     function stopAndSubmit(taskId) {
-      const btn = document.querySelector(`#card-${taskId} .recite-btn`);
-      const feedback = document.getElementById(`feedback-${taskId}`);
+      const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
+      const feedback = document.getElementById('feedback-' + taskId);
 
       btn.dataset.status = 'submitting';
       btn.style.backgroundColor = '#E07A5F';
       btn.innerText = '⏳ 小老師思考中...';
 
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.onstop = () => {
+        mediaRecorder.onstop = function() {
           const mime = mediaRecorder.mimeType || 'audio/mp4';
           const audioBlob = new Blob(audioChunks, { type: mime });
           releaseHardwareStream();
 
           const reader = new FileReader();
           reader.readAsDataURL(audioBlob);
-          reader.onloadend = () => {
+          reader.onloadend = function() {
             const base64Audio = reader.result.split(',')[1];
             sendToBackend(taskId, { audioBase64: base64Audio, mimeType: mime });
           };
@@ -355,8 +343,8 @@
     }
 
     function sendToBackend(taskId, payloadData) {
-      const btn = document.querySelector(`#card-${taskId} .recite-btn`);
-      const feedback = document.getElementById(`feedback-${taskId}`);
+      const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
+      const feedback = document.getElementById('feedback-' + taskId);
 
       const body = Object.assign({
         action: 'verifyRecitation',
@@ -370,20 +358,20 @@
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(body)
       })
-      .then(res => res.json())
-      .then(res => {
+      .then(function(res) { return res.json(); })
+      .then(function(res) {
         btn.dataset.status = 'idle';
         btn.innerText = '🎙️ 按我重新背誦';
 
         if (res.status === 'success' && res.data) {
           feedback.textContent = res.data.feedback;
           if (res.transcribedText) {
-            feedback.innerHTML += `<br><span style="font-size:0.8rem;color:#718096;">(聽到的語音：${res.transcribedText})</span>`;
+            feedback.innerHTML += '<br><span style="font-size:0.8rem;color:#718096;">(聽到的語音：' + res.transcribedText + ')</span>';
           }
 
           if (res.data.passed) {
             feedback.style.color = '#2E7D32';
-            setTimeout(() => fetchPendingTasks(currentClassCode, currentSeatNo), 2500);
+            setTimeout(function() { fetchPendingTasks(currentClassCode, currentSeatNo); }, 2500);
           } else {
             feedback.style.color = '#E07A5F';
           }
@@ -392,7 +380,7 @@
           feedback.textContent = '評估失敗：' + (res.message || '後端未回應');
         }
       })
-      .catch(err => {
+      .catch(function(err) {
         btn.dataset.status = 'idle';
         btn.innerText = '🎙️ 按我重新背誦';
         feedback.style.color = '#E07A5F';
