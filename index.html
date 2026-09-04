@@ -49,12 +49,11 @@
 
     /* 下拉選單美化 */
     .dropdown-group {
-      display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%; margin-bottom: 8px;
+      display: flex; justify-content: center; align-items: center; gap: 4px; width: 100%; margin-bottom: 8px;
     }
     .dropdown-group select {
-      padding: 10px 12px; font-size: 1.1rem; border-radius: 12px; border: 1px solid #CBD5E0;
+      padding: 10px 8px; font-size: 1.1rem; border-radius: 12px; border: 1px solid #CBD5E0;
       background: #fff; text-align: center; color: #1E3A52; font-weight: bold;
-      -webkit-appearance: none; -moz-appearance: none; appearance: none;
     }
     .dropdown-group span { font-weight: bold; color: #4A5568; font-size: 1.1rem; }
     
@@ -111,21 +110,31 @@
       <button id="startBtn" class="start-btn">🎤 語音自動登入</button>
       <div class="divider">或使用選單登入</div>
       
+      <!-- 暴力寫死選項，保證絕對出現 -->
       <div class="dropdown-group">
         <select id="selGrade">
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3" selected>3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-          <option value="6">6</option>
+          <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
         </select>
         <span>年</span>
         
-        <select id="selClass"></select>
+        <select id="selClass">
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+          <option value="6" selected>6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
+          <option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+        </select>
         <span>班</span>
         
-        <select id="selSeat"></select>
+        <select id="selSeat">
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+          <option value="6">6</option><option value="7">7</option><option value="8" selected>8</option><option value="9">9</option><option value="10">10</option>
+          <option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+          <option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option>
+          <option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option>
+          <option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option>
+          <option value="31">31</option><option value="32">32</option><option value="33">33</option><option value="34">34</option><option value="35">35</option>
+          <option value="36">36</option><option value="37">37</option><option value="38">38</option><option value="39">39</option><option value="40">40</option>
+          <option value="41">41</option><option value="42">42</option><option value="43">43</option><option value="44">44</option><option value="45">45</option>
+        </select>
         <span>號</span>
       </div>
       <button id="manualBtn" class="submit-btn">✅ 確定登入</button>
@@ -164,34 +173,6 @@
     const statusMsg = document.getElementById('statusMsg');
     const taskArea = document.getElementById('taskArea');
 
-    // ==========================================
-    // 修正：直接強制產生下拉選項，不等待載入事件
-    // ==========================================
-    function initDropdowns() {
-      const classSel = document.getElementById('selClass');
-      const seatSel = document.getElementById('selSeat');
-      
-      // 產生 1 到 15 班
-      for (let i = 1; i <= 15; i++) {
-        let opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = i;
-        if (i === 6) opt.selected = true; // 預設 6 班
-        classSel.appendChild(opt);
-      }
-      
-      // 產生 1 到 45 號
-      for (let i = 1; i <= 45; i++) {
-        let opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = i;
-        if (i === 8) opt.selected = true; // 預設 8 號
-        seatSel.appendChild(opt);
-      }
-    }
-    initDropdowns(); // 立即執行
-    // ==========================================
-
     startBtn.addEventListener('click', function() {
       statusMsg.innerHTML = '';
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -217,7 +198,6 @@
       try { loginRec.start(); } catch(e) { startBtn.innerText = '🎤 語音自動登入'; }
     });
 
-    // 選單登入按鈕
     manualBtn.addEventListener('click', function() {
       const g = document.getElementById('selGrade').value;
       const c = document.getElementById('selClass').value;
