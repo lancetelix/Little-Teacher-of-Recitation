@@ -114,28 +114,35 @@
     let currentClassCode = "";
     let currentSeatNo = "";
 
-    // 多軌錄音狀態與硬體串流控管
+    // 偵測是否為 iOS 設備
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     let mediaRecorder = null;
-    let audioStream = null; // 儲存硬體 Stream 以供完全釋放
+    let audioStream = null;
     let audioChunks = [];
-    let isFallbackRecorder = false;
     let speechTextBuffer = "";
 
     const startBtn = document.getElementById('startBtn');
     const statusMsg = document.getElementById('statusMsg');
     const taskArea = document.getElementById('taskArea');
 
-    // 登入按鈕點擊
+    // 1. 登入按鈕點擊
     startBtn.addEventListener('click', () => {
-      startBtn.innerText = '🎙️ 正在聽你說...';
       statusMsg.innerHTML = '';
       
+      // 在 iOS 上完全避開 Web Speech，直接提供文字輸入選項，確保不卡關
+      if (isIOS) {
+        showManualLoginInput();
+        return;
+      }
+
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
         showManualLoginInput();
         return;
       }
 
+      startBtn.innerText = '🎙️ 正在聽你說...';
       const loginRec = new SpeechRecognition();
       loginRec.lang = 'zh-TW';
 
@@ -150,9 +157,9 @@
       startBtn.innerText = '🎤 開始登入';
       statusMsg.style.color = '#718096';
       statusMsg.innerHTML = `
-        <p style="margin-bottom:6px;font-size:0.9rem;">語音啟動受限，請直接輸入身分：</p>
+        <p style="margin-bottom:6px;font-size:0.9rem;">請輸入身分（例如 3年6班8號）：</p>
         <div class="manual-input">
-          <input type="text" id="studentInput" placeholder="例如: 3年6班8號">
+          <input type="text" id="studentInput" placeholder="3年6班8號">
           <button onclick="submitManualLogin()">確定</button>
         </div>`;
     }
@@ -217,6 +224,14 @@
       taskArea.innerHTML = html;
     }
 
+    function releaseHardwareStream() {
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+        audioStream = null;
+      }
+      mediaRecorder = null;
+    }
+
     function handleReciteClick(taskId) {
       const btn = document.querySelector(`#card-${taskId} .recite-btn`);
       if (btn.dataset.status === 'recording') {
@@ -226,32 +241,54 @@
       }
     }
 
-    function releaseHardwareStream() {
-      if (audioStream) {
-        audioStream.getTracks().forEach(track => track.stop());
-        audioStream = null;
-      }
-      mediaRecorder = null;
-    }
-
-    // 啟動錄音軌道
+    // 關鍵修復：完全在點擊事件內「同步」開啟麥克風，滿足 iOS 安全性
     function startRecordingTrack(taskId) {
       const btn = document.querySelector(`#card-${taskId} .recite-btn`);
       const feedback = document.getElementById(`feedback-${taskId}`);
 
-      releaseHardwareStream(); // 確保開始前徹底釋放舊硬體資源
+      releaseHardwareStream();
 
       btn.dataset.status = 'recording';
       btn.style.backgroundColor = '#4CAF50';
       btn.innerText = '✅ 我背完了（點我送出）';
       feedback.style.display = 'block';
       feedback.style.color = '#718096';
-      feedback.textContent = '小老師聽著喔，請慢慢背...';
 
+      // iOS 設備：100% 同步調用 getUserMedia，跳過所有非同步語音 API
+      if (isIOS) {
+        feedback.textContent = '🎙️ 錄音中，背完請按綠色按鈕...';
+        
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            audioStream = stream;
+            audioChunks = [];
+            
+            let options = {};
+            if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
+            else if (MediaRecorder.isTypeSupported('audio/aac')) options = { mimeType: 'audio/aac' };
+
+            mediaRecorder = new MediaRecorder(stream, options);
+            mediaRecorder.ondataavailable = e => {
+              if (e.data.size > 0) audioChunks.push(e.data);
+            };
+            mediaRecorder.start();
+          })
+          .catch(err => {
+            btn.dataset.status = 'idle';
+            btn.style.backgroundColor = '#E07A5F';
+            btn.innerText = '🎙️ 按我開始背誦';
+            feedback.style.color = '#E07A5F';
+            feedback.textContent = '麥克風開啟失敗，請重整網頁再試。';
+          });
+        return;
+      }
+
+      // Android / 電腦版：保持免費的 Web Speech API
+      feedback.textContent = '小老師聽著喔，請慢慢背...';
       speechTextBuffer = "";
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      if (SpeechRecognition && !isFallbackRecorder) {
+      if (SpeechRecognition) {
         const rec = new SpeechRecognition();
         rec.lang = 'zh-TW';
         rec.continuous = true;
@@ -263,38 +300,8 @@
           if (speechTextBuffer) feedback.textContent = '小老師聽到了：' + speechTextBuffer;
         };
 
-        rec.onerror = (e) => {
-          if (e.error === 'service-not-allowed' || e.error === 'not-allowed') {
-            isFallbackRecorder = true;
-            startMediaRecorderFallback(taskId);
-          }
-        };
-
-        try { rec.start(); return; } catch(e) { isFallbackRecorder = true; }
+        try { rec.start(); return; } catch(e) {}
       }
-
-      startMediaRecorderFallback(taskId);
-    }
-
-    // iOS 救援錄音器 (含硬體 Stream 鎖定保護)
-    function startMediaRecorderFallback(taskId) {
-      const feedback = document.getElementById(`feedback-${taskId}`);
-      feedback.textContent = '🎙️ 錄音中，背完請按綠色按鈕...';
-
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          audioStream = stream; // 鎖定參考
-          audioChunks = [];
-          mediaRecorder = new MediaRecorder(stream);
-          mediaRecorder.ondataavailable = e => {
-            if (e.data.size > 0) audioChunks.push(e.data);
-          };
-          mediaRecorder.start();
-        })
-        .catch(err => {
-          feedback.style.color = '#E07A5F';
-          feedback.textContent = '麥克風開啟失敗，請重新整理網頁再試。';
-        });
     }
 
     function stopAndSubmit(taskId) {
@@ -307,14 +314,15 @@
 
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/mp4' });
-          releaseHardwareStream(); // 【iOS 核心修復】：錄製完成立刻關閉麥克風硬體通道，避免第二次連鎖卡死
+          const mime = mediaRecorder.mimeType || 'audio/mp4';
+          const audioBlob = new Blob(audioChunks, { type: mime });
+          releaseHardwareStream();
 
           const reader = new FileReader();
           reader.readAsDataURL(audioBlob);
           reader.onloadend = () => {
             const base64Audio = reader.result.split(',')[1];
-            sendToBackend(taskId, { audioBase64: base64Audio, mimeType: audioBlob.type });
+            sendToBackend(taskId, { audioBase64: base64Audio, mimeType: mime });
           };
         };
         mediaRecorder.stop();
