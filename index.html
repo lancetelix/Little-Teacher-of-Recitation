@@ -36,8 +36,9 @@
     h1 { color: #2E7D32; font-size: 1.75rem; font-weight: 700; }
     .subtitle { color: #718096; font-size: 0.95rem; margin-bottom: 24px; }
     
-    .login-container { display: flex; flex-direction: column; gap: 12px; align-items: center; width: 100%; margin-top: 10px; }
-    .divider { color: #A0AEC0; font-size: 0.85rem; display: flex; align-items: center; width: 100%; margin: 8px 0; }
+    .login-container { display: flex; flex-direction: column; gap: 10px; align-items: center; width: 100%; margin-top: 10px; }
+    .prompt-text { color: #718096; font-size: 0.85rem; margin-top: -2px; }
+    .divider { color: #A0AEC0; font-size: 0.85rem; display: flex; align-items: center; width: 100%; margin: 6px 0; }
     .divider::before, .divider::after { content: ""; flex: 1; border-bottom: 1px solid #E2E8F0; margin: 0 10px; }
     
     .start-btn {
@@ -48,7 +49,7 @@
     }
 
     .dropdown-group {
-      display: flex; justify-content: center; align-items: center; gap: 4px; width: 100%; margin-bottom: 8px;
+      display: flex; justify-content: center; align-items: center; gap: 4px; width: 100%; margin-bottom: 4px;
     }
     .dropdown-group select {
       padding: 10px 8px; font-size: 1.1rem; border-radius: 12px; border: 1px solid #CBD5E0;
@@ -102,6 +103,8 @@
 
     <div id="loginSection" class="login-container">
       <button id="startBtn" class="start-btn">🎤 語音自動登入</button>
+      <p class="prompt-text">請說：「我是三年〇班〇號，我要開始了。」</p>
+
       <div class="divider">或使用選單登入</div>
       
       <div class="dropdown-group">
@@ -138,7 +141,6 @@
   </div>
 
   <script>
-    // 安全起見，將所有程式碼包覆，確保網頁完全載入後才執行
     window.onload = function() {
       const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzRi86w6Bt_MZO-utAPDPR7ujBojxobdR9YG7XGg4C_Vdu1Xlk6MV-nuIrg1CraukIJAw/exec";
 
@@ -158,12 +160,10 @@
       const statusMsg = document.getElementById('statusMsg');
       const taskArea = document.getElementById('taskArea');
 
-      // 補零函數 (確保個位數座號前面有0)
       function padZero(num) {
         return Number(num) < 10 ? '0' + Number(num) : String(num);
       }
 
-      // 語音登入
       startBtn.addEventListener('click', function() {
         statusMsg.innerHTML = '';
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -189,13 +189,11 @@
         try { loginRec.start(); } catch(e) { startBtn.innerText = '🎤 語音自動登入'; }
       });
 
-      // 下拉選單登入
       manualBtn.addEventListener('click', function() {
         const g = document.getElementById('selGrade').value;
         const c = document.getElementById('selClass').value;
         const s = document.getElementById('selSeat').value;
 
-        // 套用補零函數
         currentClassCode = g + padZero(c);
         currentSeatNo = padZero(s);
 
@@ -205,7 +203,6 @@
         fetchPendingTasks(currentClassCode, currentSeatNo);
       });
 
-      // 解析語音文字（已修正致命的符號錯誤）
       function parseStudentInfo(text) {
         let t = text.replace(/[０-９]/g, function(s) { return String.fromCharCode(s.charCodeAt(0) - 0xfee0); });
         const numMap = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'零':0,'〇':0};
@@ -261,7 +258,6 @@
         });
         taskArea.innerHTML = html;
 
-        // 綁定背誦按鈕事件
         tasks.forEach(function(task) {
           document.querySelector('#card-' + task.taskId + ' .recite-btn').addEventListener('click', function() {
             handleReciteClick(task.taskId);
@@ -381,7 +377,6 @@
         const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
         const feedback = document.getElementById('feedback-' + taskId);
 
-        // 避免使用 Object.assign，改用最傳統穩定的寫法
         const requestBody = {
           action: 'verifyRecitation',
           classCode: currentClassCode,
