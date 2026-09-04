@@ -54,6 +54,7 @@
     .dropdown-group select {
       padding: 10px 12px; font-size: 1.1rem; border-radius: 12px; border: 1px solid #CBD5E0;
       background: #fff; text-align: center; color: #1E3A52; font-weight: bold;
+      -webkit-appearance: none; -moz-appearance: none; appearance: none;
     }
     .dropdown-group span { font-weight: bold; color: #4A5568; font-size: 1.1rem; }
     
@@ -163,20 +164,33 @@
     const statusMsg = document.getElementById('statusMsg');
     const taskArea = document.getElementById('taskArea');
 
-    // 網頁載入時自動產生下拉選單的數字
-    document.addEventListener('DOMContentLoaded', function() {
+    // ==========================================
+    // 修正：直接強制產生下拉選項，不等待載入事件
+    // ==========================================
+    function initDropdowns() {
       const classSel = document.getElementById('selClass');
+      const seatSel = document.getElementById('selSeat');
+      
       // 產生 1 到 15 班
       for (let i = 1; i <= 15; i++) {
-        classSel.innerHTML += '<option value="' + i + '"' + (i === 6 ? ' selected' : '') + '>' + i + '</option>';
+        let opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = i;
+        if (i === 6) opt.selected = true; // 預設 6 班
+        classSel.appendChild(opt);
       }
       
-      const seatSel = document.getElementById('selSeat');
       // 產生 1 到 45 號
       for (let i = 1; i <= 45; i++) {
-        seatSel.innerHTML += '<option value="' + i + '"' + (i === 8 ? ' selected' : '') + '>' + i + '</option>';
+        let opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = i;
+        if (i === 8) opt.selected = true; // 預設 8 號
+        seatSel.appendChild(opt);
       }
-    });
+    }
+    initDropdowns(); // 立即執行
+    // ==========================================
 
     startBtn.addEventListener('click', function() {
       statusMsg.innerHTML = '';
