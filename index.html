@@ -114,8 +114,9 @@
     let currentClassCode = "";
     let currentSeatNo = "";
 
-    // 多軌錄音狀態控管
+    // 多軌錄音狀態與硬體串流控管
     let mediaRecorder = null;
+    let audioStream = null; // 儲存硬體 Stream 以供完全釋放
     let audioChunks = [];
     let isFallbackRecorder = false;
     let speechTextBuffer = "";
@@ -225,10 +226,20 @@
       }
     }
 
-    // 啟動錄音軌道（自動支援 iOS 原生 MediaRecorder 降級）
+    function releaseHardwareStream() {
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+        audioStream = null;
+      }
+      mediaRecorder = null;
+    }
+
+    // 啟動錄音軌道
     function startRecordingTrack(taskId) {
       const btn = document.querySelector(`#card-${taskId} .recite-btn`);
       const feedback = document.getElementById(`feedback-${taskId}`);
+
+      releaseHardwareStream(); // 確保開始前徹底釋放舊硬體資源
 
       btn.dataset.status = 'recording';
       btn.style.backgroundColor = '#4CAF50';
@@ -253,7 +264,6 @@
         };
 
         rec.onerror = (e) => {
-          // 若出現 service-not-allowed 等 iOS 錯誤，切換至 HTML5 救援模式
           if (e.error === 'service-not-allowed' || e.error === 'not-allowed') {
             isFallbackRecorder = true;
             startMediaRecorderFallback(taskId);
@@ -266,21 +276,24 @@
       startMediaRecorderFallback(taskId);
     }
 
-    // iOS 救援錄音器 (使用 HTML5 getUserMedia)
+    // iOS 救援錄音器 (含硬體 Stream 鎖定保護)
     function startMediaRecorderFallback(taskId) {
       const feedback = document.getElementById(`feedback-${taskId}`);
-      feedback.textContent = '🎙️ 救援錄音模式啟動，請開始背誦...';
+      feedback.textContent = '🎙️ 錄音中，背完請按綠色按鈕...';
 
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
+          audioStream = stream; // 鎖定參考
           audioChunks = [];
           mediaRecorder = new MediaRecorder(stream);
-          mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+          mediaRecorder.ondataavailable = e => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
           mediaRecorder.start();
         })
         .catch(err => {
           feedback.style.color = '#E07A5F';
-          feedback.textContent = '麥克風開啟失敗，請檢查手機設定。';
+          feedback.textContent = '麥克風開啟失敗，請重新整理網頁再試。';
         });
     }
 
@@ -293,9 +306,10 @@
       btn.innerText = '⏳ 小老師思考中...';
 
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
         mediaRecorder.onstop = () => {
           const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/mp4' });
+          releaseHardwareStream(); // 【iOS 核心修復】：錄製完成立刻關閉麥克風硬體通道，避免第二次連鎖卡死
+
           const reader = new FileReader();
           reader.readAsDataURL(audioBlob);
           reader.onloadend = () => {
@@ -303,7 +317,9 @@
             sendToBackend(taskId, { audioBase64: base64Audio, mimeType: audioBlob.type });
           };
         };
+        mediaRecorder.stop();
       } else {
+        releaseHardwareStream();
         sendToBackend(taskId, { speechText: speechTextBuffer });
       }
     }
