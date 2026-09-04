@@ -47,7 +47,6 @@
       box-shadow: 0 4px 14px rgba(76, 175, 80, 0.25);
     }
 
-    /* 下拉選單美化 */
     .dropdown-group {
       display: flex; justify-content: center; align-items: center; gap: 4px; width: 100%; margin-bottom: 8px;
     }
@@ -85,11 +84,6 @@
       margin-top: 10px; padding: 10px; background: #FFFFFF; 
       border-radius: 12px; font-size: 0.9rem; line-height: 1.5;
     }
-
-    .sys-error {
-      display: none; color: #D32F2F; font-size: 0.85rem; margin-top: 15px;
-      background: #FFEBEE; padding: 12px; border-radius: 8px; text-align: left;
-    }
   </style>
 </head>
 <body>
@@ -110,7 +104,6 @@
       <button id="startBtn" class="start-btn">🎤 語音自動登入</button>
       <div class="divider">或使用選單登入</div>
       
-      <!-- 暴力寫死選項，保證絕對出現 -->
       <div class="dropdown-group">
         <select id="selGrade">
           <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
@@ -142,285 +135,303 @@
 
     <div id="statusMsg" class="status-msg"></div>
     <div id="taskArea" class="task-area"></div>
-    <div id="sysError" class="sys-error"></div>
   </div>
 
   <script>
-    window.onerror = function(msg, url, lineNo) {
-      const errBox = document.getElementById('sysError');
-      if (errBox) {
-        errBox.style.display = 'block';
-        errBox.innerHTML += '<strong>語法錯誤：</strong> ' + msg + ' (第 ' + lineNo + ' 行)';
-      }
-      return false;
-    };
+    // 安全起見，將所有程式碼包覆，確保網頁完全載入後才執行
+    window.onload = function() {
+      const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzRi86w6Bt_MZO-utAPDPR7ujBojxobdR9YG7XGg4C_Vdu1Xlk6MV-nuIrg1CraukIJAw/exec";
 
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzRi86w6Bt_MZO-utAPDPR7ujBojxobdR9YG7XGg4C_Vdu1Xlk6MV-nuIrg1CraukIJAw/exec";
+      let currentClassCode = "";
+      let currentSeatNo = "";
 
-    let currentClassCode = "";
-    let currentSeatNo = "";
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      let mediaRecorder = null;
+      let audioStream = null;
+      let audioChunks = [];
+      let speechTextBuffer = "";
 
-    let mediaRecorder = null;
-    let audioStream = null;
-    let audioChunks = [];
-    let speechTextBuffer = "";
+      const startBtn = document.getElementById('startBtn');
+      const manualBtn = document.getElementById('manualBtn');
+      const loginSection = document.getElementById('loginSection');
+      const statusMsg = document.getElementById('statusMsg');
+      const taskArea = document.getElementById('taskArea');
 
-    const startBtn = document.getElementById('startBtn');
-    const manualBtn = document.getElementById('manualBtn');
-    const loginSection = document.getElementById('loginSection');
-    const statusMsg = document.getElementById('statusMsg');
-    const taskArea = document.getElementById('taskArea');
-
-    startBtn.addEventListener('click', function() {
-      statusMsg.innerHTML = '';
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      
-      if (!SpeechRecognition) {
-        statusMsg.style.color = '#E07A5F';
-        statusMsg.textContent = '此裝置不支援語音登入，請直接使用下拉選單登入喔！';
-        return;
+      // 補零函數 (確保個位數座號前面有0)
+      function padZero(num) {
+        return Number(num) < 10 ? '0' + Number(num) : String(num);
       }
 
-      startBtn.innerText = '🎙️ 正在聽你說...';
-      const loginRec = new SpeechRecognition();
-      loginRec.lang = 'zh-TW';
+      // 語音登入
+      startBtn.addEventListener('click', function() {
+        statusMsg.innerHTML = '';
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+          statusMsg.style.color = '#E07A5F';
+          statusMsg.textContent = '此裝置不支援語音登入，請直接使用下拉選單登入喔！';
+          return;
+        }
 
-      loginRec.onresult = function(e) { parseStudentInfo(e.results[0][0].transcript); };
-      loginRec.onerror = function() {
-        startBtn.innerText = '🎤 語音自動登入';
-        statusMsg.style.color = '#E07A5F';
-        statusMsg.textContent = '沒聽清楚，請再試一次或直接用選單登入喔！';
-      };
-      loginRec.onend = function() { startBtn.innerText = '🎤 語音自動登入'; };
+        startBtn.innerText = '🎙️ 正在聽你說...';
+        const loginRec = new SpeechRecognition();
+        loginRec.lang = 'zh-TW';
 
-      try { loginRec.start(); } catch(e) { startBtn.innerText = '🎤 語音自動登入'; }
-    });
+        loginRec.onresult = function(e) { parseStudentInfo(e.results[0][0].transcript); };
+        loginRec.onerror = function() {
+          startBtn.innerText = '🎤 語音自動登入';
+          statusMsg.style.color = '#E07A5F';
+          statusMsg.textContent = '沒聽清楚，請再試一次或直接用選單登入喔！';
+        };
+        loginRec.onend = function() { startBtn.innerText = '🎤 語音自動登入'; };
 
-    manualBtn.addEventListener('click', function() {
-      const g = document.getElementById('selGrade').value;
-      const c = document.getElementById('selClass').value;
-      const s = document.getElementById('selSeat').value;
+        try { loginRec.start(); } catch(e) { startBtn.innerText = '🎤 語音自動登入'; }
+      });
 
-      currentClassCode = g + String(c).padStart(2, '0');
-      currentSeatNo = String(s).padStart(2, '0');
+      // 下拉選單登入
+      manualBtn.addEventListener('click', function() {
+        const g = document.getElementById('selGrade').value;
+        const c = document.getElementById('selClass').value;
+        const s = document.getElementById('selSeat').value;
 
-      loginSection.style.display = 'none';
-      statusMsg.style.color = '#2E7D32';
-      statusMsg.textContent = "你好，" + g + "年" + c + "班" + s + "號！";
-      fetchPendingTasks(currentClassCode, currentSeatNo);
-    });
-
-    function parseStudentInfo(text) {
-      let t = text.replace(/[０-％]/g, function(s) { return String.fromCharCode(s.charCodeAt(0) - 0xfee0); });
-      const numMap = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'零':0,'〇':0};
-      
-      t = t.replace(/十([一二三四五六七八九])/g, function(m, p1) { return "1" + numMap[p1]; });
-      t = t.replace(/([二三四五六七八九])十([一二三四五六七八九])?/g, function(m, p1, p2) { return numMap[p1] + (p2 ? numMap[p2] : "0"); });
-      t = t.replace(/十/g, "10").replace(/[一二兩三四五六七八九零〇]/g, function(m) { return numMap[m]; });
-
-      const match = t.match(/([1-9]).*?([0-9]+).*?班.*?([0-9]+).*?號/) || t.match(/([1-9])([0-9]{2}).*?([0-9]+).*?號/);
-
-      if (match) {
-        currentClassCode = match[1] + String(match[2]).padStart(2, '0');
-        currentSeatNo = String(match[3]).padStart(2, '0');
+        // 套用補零函數
+        currentClassCode = g + padZero(c);
+        currentSeatNo = padZero(s);
 
         loginSection.style.display = 'none';
         statusMsg.style.color = '#2E7D32';
-        statusMsg.textContent = "你好，" + match[1] + "年" + match[2] + "班" + match[3] + "號！";
+        statusMsg.textContent = "你好，" + g + "年" + c + "班" + s + "號！";
         fetchPendingTasks(currentClassCode, currentSeatNo);
-      } else {
-        statusMsg.style.color = '#E07A5F';
-        statusMsg.innerHTML = '沒看懂班級座號喔！<br><span style="font-size:0.8rem;color:#718096;">(收到的是：「' + text + '」)</span>';
-      }
-    }
-
-    function fetchPendingTasks(classCode, seatNo) {
-      taskArea.innerHTML = '<p style="color: #718096;">尋找今日練習中...</p>';
-      fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'getPendingTasks', classCode: classCode, seatNo: seatNo })
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(res) {
-        if (res.status === 'success') renderTasks(res.data);
-        else taskArea.innerHTML = '<p style="color:#E07A5F;">讀取失敗：' + res.message + '</p>';
       });
-    }
 
-    function renderTasks(tasks) {
-      if (!tasks || tasks.length === 0) {
-        taskArea.innerHTML = '<div style="background:#E8F5E9;padding:16px;border-radius:16px;color:#2E7D32;font-weight:bold;">🎉 今天練習都完成了，太棒囉！</div>';
-        return;
-      }
-
-      let html = '<p style="color:#2D3748;font-weight:bold;margin-bottom:10px;text-align:left;">請選擇任務開始練習：</p>';
-      tasks.forEach(function(task) {
-        html += '<div class="task-card" id="card-' + task.taskId + '">' +
-          '<span class="task-badge">' + (task.type || '背誦') + '</span>' +
-          '<div class="task-title">' + task.title + '</div>' +
-          '<button class="recite-btn" data-status="idle" onclick="handleReciteClick(\'' + task.taskId + '\')">🎙️ 按我開始背誦</button>' +
-          '<div class="ai-feedback" id="feedback-' + task.taskId + '" style="display:none;"></div>' +
-        '</div>';
-      });
-      taskArea.innerHTML = html;
-    }
-
-    function releaseHardwareStream() {
-      if (audioStream) {
-        audioStream.getTracks().forEach(function(track) { track.stop(); });
-        audioStream = null;
-      }
-      mediaRecorder = null;
-    }
-
-    function handleReciteClick(taskId) {
-      const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
-      if (btn.dataset.status === 'recording') {
-        stopAndSubmit(taskId);
-      } else {
-        startRecordingTrack(taskId);
-      }
-    }
-
-    function startRecordingTrack(taskId) {
-      const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
-      const feedback = document.getElementById('feedback-' + taskId);
-
-      releaseHardwareStream();
-
-      btn.dataset.status = 'recording';
-      btn.style.backgroundColor = '#4CAF50';
-      btn.innerText = '✅ 我背完了（點我送出）';
-      feedback.style.display = 'block';
-      feedback.style.color = '#718096';
-
-      if (isIOS) {
-        feedback.textContent = '🎙️ 錄音中，背完請按綠色按鈕...';
+      // 解析語音文字（已修正致命的符號錯誤）
+      function parseStudentInfo(text) {
+        let t = text.replace(/[０-９]/g, function(s) { return String.fromCharCode(s.charCodeAt(0) - 0xfee0); });
+        const numMap = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'零':0,'〇':0};
         
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-           feedback.style.color = '#E07A5F';
-           feedback.textContent = '您的蘋果設備不支援網頁錄音功能。';
-           return;
+        t = t.replace(/十([一二三四五六七八九])/g, function(m, p1) { return "1" + numMap[p1]; });
+        t = t.replace(/([二三四五六七八九])十([一二三四五六七八九])?/g, function(m, p1, p2) { return numMap[p1] + (p2 ? numMap[p2] : "0"); });
+        t = t.replace(/十/g, "10").replace(/[一二兩三四五六七八九零〇]/g, function(m) { return numMap[m]; });
+
+        const match = t.match(/([1-9]).*?([0-9]+).*?班.*?([0-9]+).*?號/) || t.match(/([1-9])([0-9]{2}).*?([0-9]+).*?號/);
+
+        if (match) {
+          currentClassCode = match[1] + padZero(match[2]);
+          currentSeatNo = padZero(match[3]);
+
+          loginSection.style.display = 'none';
+          statusMsg.style.color = '#2E7D32';
+          statusMsg.textContent = "你好，" + match[1] + "年" + match[2] + "班" + match[3] + "號！";
+          fetchPendingTasks(currentClassCode, currentSeatNo);
+        } else {
+          statusMsg.style.color = '#E07A5F';
+          statusMsg.innerHTML = '沒看懂班級座號喔！<br><span style="font-size:0.8rem;color:#718096;">(剛才聽到的是：「' + text + '」)</span>';
+        }
+      }
+
+      function fetchPendingTasks(classCode, seatNo) {
+        taskArea.innerHTML = '<p style="color: #718096;">尋找今日練習中...</p>';
+        fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'getPendingTasks', classCode: classCode, seatNo: seatNo })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(res) {
+          if (res.status === 'success') renderTasks(res.data);
+          else taskArea.innerHTML = '<p style="color:#E07A5F;">讀取失敗：' + res.message + '</p>';
+        });
+      }
+
+      function renderTasks(tasks) {
+        if (!tasks || tasks.length === 0) {
+          taskArea.innerHTML = '<div style="background:#E8F5E9;padding:16px;border-radius:16px;color:#2E7D32;font-weight:bold;">🎉 今天練習都完成了，太棒囉！</div>';
+          return;
         }
 
-        navigator.mediaDevices.getUserMedia({ audio: true })
-          .then(function(stream) {
-            audioStream = stream;
-            audioChunks = [];
-            let options = {};
-            if (typeof MediaRecorder !== 'undefined') {
-              if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
-              mediaRecorder = new MediaRecorder(stream, options);
-              mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data); };
-              mediaRecorder.start();
-            }
-          })
-          .catch(function(err) {
-            btn.dataset.status = 'idle';
-            btn.style.backgroundColor = '#E07A5F';
-            btn.innerText = '🎙️ 按我開始背誦';
-            feedback.style.color = '#E07A5F';
-            feedback.textContent = '麥克風開啟失敗：' + err.message;
+        let html = '<p style="color:#2D3748;font-weight:bold;margin-bottom:10px;text-align:left;">請選擇任務開始練習：</p>';
+        tasks.forEach(function(task) {
+          html += '<div class="task-card" id="card-' + task.taskId + '">' +
+            '<span class="task-badge">' + (task.type || '背誦') + '</span>' +
+            '<div class="task-title">' + task.title + '</div>' +
+            '<button class="recite-btn" data-status="idle">🎙️ 按我開始背誦</button>' +
+            '<div class="ai-feedback" id="feedback-' + task.taskId + '" style="display:none;"></div>' +
+          '</div>';
+        });
+        taskArea.innerHTML = html;
+
+        // 綁定背誦按鈕事件
+        tasks.forEach(function(task) {
+          document.querySelector('#card-' + task.taskId + ' .recite-btn').addEventListener('click', function() {
+            handleReciteClick(task.taskId);
           });
-        return;
+        });
       }
 
-      feedback.textContent = '小老師聽著喔，請慢慢背...';
-      speechTextBuffer = "";
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-      if (SpeechRecognition) {
-        const rec = new SpeechRecognition();
-        rec.lang = 'zh-TW';
-        rec.continuous = true;
-
-        rec.onresult = function(e) {
-          for (let i = e.resultIndex; i < e.results.length; i++) {
-            if (e.results[i].isFinal) speechTextBuffer += e.results[i][0].transcript;
-          }
-          if (speechTextBuffer) feedback.textContent = '小老師聽到了：' + speechTextBuffer;
-        };
-
-        try { rec.start(); } catch(e) {}
+      function releaseHardwareStream() {
+        if (audioStream) {
+          audioStream.getTracks().forEach(function(track) { track.stop(); });
+          audioStream = null;
+        }
+        mediaRecorder = null;
       }
-    }
 
-    function stopAndSubmit(taskId) {
-      const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
-      const feedback = document.getElementById('feedback-' + taskId);
+      function handleReciteClick(taskId) {
+        const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
+        if (btn.dataset.status === 'recording') {
+          stopAndSubmit(taskId);
+        } else {
+          startRecordingTrack(taskId);
+        }
+      }
 
-      btn.dataset.status = 'submitting';
-      btn.style.backgroundColor = '#E07A5F';
-      btn.innerText = '⏳ 小老師思考中...';
+      function startRecordingTrack(taskId) {
+        const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
+        const feedback = document.getElementById('feedback-' + taskId);
 
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.onstop = function() {
-          const mime = mediaRecorder.mimeType || 'audio/mp4';
-          const audioBlob = new Blob(audioChunks, { type: mime });
-          releaseHardwareStream();
-
-          const reader = new FileReader();
-          reader.readAsDataURL(audioBlob);
-          reader.onloadend = function() {
-            const base64Audio = reader.result.split(',')[1];
-            sendToBackend(taskId, { audioBase64: base64Audio, mimeType: mime });
-          };
-        };
-        mediaRecorder.stop();
-      } else {
         releaseHardwareStream();
-        sendToBackend(taskId, { speechText: speechTextBuffer });
-      }
-    }
 
-    function sendToBackend(taskId, payloadData) {
-      const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
-      const feedback = document.getElementById('feedback-' + taskId);
+        btn.dataset.status = 'recording';
+        btn.style.backgroundColor = '#4CAF50';
+        btn.innerText = '✅ 我背完了（點我送出）';
+        feedback.style.display = 'block';
+        feedback.style.color = '#718096';
 
-      const body = Object.assign({
-        action: 'verifyRecitation',
-        classCode: currentClassCode,
-        seatNo: currentSeatNo,
-        taskId: taskId
-      }, payloadData);
-
-      fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(body)
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(res) {
-        btn.dataset.status = 'idle';
-        btn.innerText = '🎙️ 按我重新背誦';
-
-        if (res.status === 'success' && res.data) {
-          feedback.textContent = res.data.feedback;
-          if (res.transcribedText) {
-            feedback.innerHTML += '<br><span style="font-size:0.8rem;color:#718096;">(聽到的語音：' + res.transcribedText + ')</span>';
+        if (isIOS) {
+          feedback.textContent = '🎙️ 錄音中，背完請按綠色按鈕...';
+          
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+             feedback.style.color = '#E07A5F';
+             feedback.textContent = '您的蘋果設備不支援網頁錄音功能。';
+             return;
           }
 
-          if (res.data.passed) {
-            feedback.style.color = '#2E7D32';
-            setTimeout(function() { fetchPendingTasks(currentClassCode, currentSeatNo); }, 2500);
+          navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function(stream) {
+              audioStream = stream;
+              audioChunks = [];
+              let options = {};
+              if (typeof MediaRecorder !== 'undefined') {
+                if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
+                mediaRecorder = new MediaRecorder(stream, options);
+                mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data); };
+                mediaRecorder.start();
+              }
+            })
+            .catch(function(err) {
+              btn.dataset.status = 'idle';
+              btn.style.backgroundColor = '#E07A5F';
+              btn.innerText = '🎙️ 按我開始背誦';
+              feedback.style.color = '#E07A5F';
+              feedback.textContent = '麥克風開啟失敗：' + err.message;
+            });
+          return;
+        }
+
+        feedback.textContent = '小老師聽著喔，請慢慢背...';
+        speechTextBuffer = "";
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+          const rec = new SpeechRecognition();
+          rec.lang = 'zh-TW';
+          rec.continuous = true;
+
+          rec.onresult = function(e) {
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+              if (e.results[i].isFinal) speechTextBuffer += e.results[i][0].transcript;
+            }
+            if (speechTextBuffer) feedback.textContent = '小老師聽到了：' + speechTextBuffer;
+          };
+
+          try { rec.start(); } catch(e) {}
+        }
+      }
+
+      function stopAndSubmit(taskId) {
+        const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
+        const feedback = document.getElementById('feedback-' + taskId);
+
+        btn.dataset.status = 'submitting';
+        btn.style.backgroundColor = '#E07A5F';
+        btn.innerText = '⏳ 小老師思考中...';
+
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.onstop = function() {
+            const mime = mediaRecorder.mimeType || 'audio/mp4';
+            const audioBlob = new Blob(audioChunks, { type: mime });
+            releaseHardwareStream();
+
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = function() {
+              const base64Audio = reader.result.split(',')[1];
+              sendToBackend(taskId, { audioBase64: base64Audio, mimeType: mime });
+            };
+          };
+          mediaRecorder.stop();
+        } else {
+          releaseHardwareStream();
+          sendToBackend(taskId, { speechText: speechTextBuffer });
+        }
+      }
+
+      function sendToBackend(taskId, payloadData) {
+        const btn = document.querySelector('#card-' + taskId + ' .recite-btn');
+        const feedback = document.getElementById('feedback-' + taskId);
+
+        // 避免使用 Object.assign，改用最傳統穩定的寫法
+        const requestBody = {
+          action: 'verifyRecitation',
+          classCode: currentClassCode,
+          seatNo: currentSeatNo,
+          taskId: taskId
+        };
+        
+        if (payloadData.audioBase64) {
+          requestBody.audioBase64 = payloadData.audioBase64;
+          requestBody.mimeType = payloadData.mimeType;
+        }
+        if (payloadData.speechText) {
+          requestBody.speechText = payloadData.speechText;
+        }
+
+        fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(requestBody)
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(res) {
+          btn.dataset.status = 'idle';
+          btn.innerText = '🎙️ 按我重新背誦';
+
+          if (res.status === 'success' && res.data) {
+            feedback.textContent = res.data.feedback;
+            if (res.transcribedText) {
+              feedback.innerHTML += '<br><span style="font-size:0.8rem;color:#718096;">(聽到的語音：' + res.transcribedText + ')</span>';
+            }
+
+            if (res.data.passed) {
+              feedback.style.color = '#2E7D32';
+              setTimeout(function() { fetchPendingTasks(currentClassCode, currentSeatNo); }, 2500);
+            } else {
+              feedback.style.color = '#E07A5F';
+            }
           } else {
             feedback.style.color = '#E07A5F';
+            feedback.textContent = '評估失敗：' + (res.message || '後端未回應');
           }
-        } else {
+        })
+        .catch(function(err) {
+          btn.dataset.status = 'idle';
+          btn.innerText = '🎙️ 按我重新背誦';
           feedback.style.color = '#E07A5F';
-          feedback.textContent = '評估失敗：' + (res.message || '後端未回應');
-        }
-      })
-      .catch(function(err) {
-        btn.dataset.status = 'idle';
-        btn.innerText = '🎙️ 按我重新背誦';
-        feedback.style.color = '#E07A5F';
-        feedback.textContent = '連線失敗：' + err.toString();
-      });
-    }
+          feedback.textContent = '連線失敗，請檢查網路！';
+        });
+      }
+    };
   </script>
 </body>
 </html>
