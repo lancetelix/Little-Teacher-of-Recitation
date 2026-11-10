@@ -403,6 +403,13 @@
           btn.innerText = '🎙️ 按我重新背誦';
 
           if (res.status === 'success' && res.data) {
+            if (res.data.retry) {
+              btn.innerText = '🎙️ 按我重新錄音';
+              feedback.style.color = '#E07A5F';
+              feedback.textContent = res.data.feedback || '這次沒有清楚聽到內容，請重新錄音喔！';
+              return;
+            }
+
             feedback.textContent = res.data.feedback;
             if (res.transcribedText) {
               feedback.innerHTML += '<br><span style="font-size:0.8rem;color:#718096;">(聽到的語音：' + res.transcribedText + ')</span>';
